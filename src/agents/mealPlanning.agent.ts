@@ -1,0 +1,237 @@
+import type { McpUserSummary } from '../mcp/userSummary';
+import { createLlmClientFromEnv } from '../services/llm';
+import { buildMealPlanningPrompt, MEAL_PLAN_SCHEMA_VERSION } from './mealPlanning.prompt';
+
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type GroceryCategory = 'produce' | 'protein' | 'grains' | 'dairy' | 'pantry' | 'other';
+
+export interface MealPlanMeal {
+  slot: MealSlot;
+  name: string;
+  portion: string;
+  reason: string;
+}
+
+export interface MealPlanDay {
+  day: 1 | 2 | 3;
+  meals: MealPlanMeal[];
+}
+
+export interface GroceryListItem {
+  item: string;
+  quantity: string;
+  category: GroceryCategory;
+}
+
+export interface MealPlanningResult {
+  schemaVersion: 'v1';
+  days: MealPlanDay[];
+  groceryList: GroceryListItem[];
+  reasoning: {
+    approach: string;
+    constraintsApplied: string[];
+    safetyNote: string;
+  };
+}
+
+const VALID_SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+const VALID_GROCERY_CATEGORIES: GroceryCategory[] = ['produce', 'protein', 'grains', 'dairy', 'pantry', 'other'];
+
+function compactText(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized || fallback;
+}
+
+function asObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function parseJsonObject(input: string): Record<string, unknown> {
+  const trimmed = input.trim();
+  try {
+    return asObject(JSON.parse(trimmed));
+  } catch {
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      return asObject(JSON.parse(trimmed.slice(start, end + 1)));
+    }
+    throw new Error('Meal planning response is not valid JSON');
+  }
+}
+
+function normalizeMeals(value: unknown): MealPlanMeal[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const normalized: MealPlanMeal[] = [];
+  for (const item of value) {
+    const source = asObject(item);
+    const slotRaw = compactText(source.slot, '');
+    const slot = VALID_SLOTS.includes(slotRaw as MealSlot) ? (slotRaw as MealSlot) : null;
+    if (!slot) {
+      continue;
+    }
+
+    normalized.push({
+      slot,
+      name: compactText(source.name, 'Simple meal option'),
+      portion: compactText(source.portion, '1 serving'),
+      reason: compactText(source.reason, 'Aligned to user goals and preferences')
+    });
+  }
+
+  return normalized;
+}
+
+function normalizeDays(value: unknown): MealPlanDay[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const result: MealPlanDay[] = [];
+  for (const day of value) {
+    const source = asObject(day);
+    const dayNumber = Number(source.day);
+    if (![1, 2, 3].includes(dayNumber)) {
+      continue;
+    }
+
+    result.push({
+      day: dayNumber as 1 | 2 | 3,
+      meals: normalizeMeals(source.meals)
+    });
+  }
+
+  return result
+    .sort((a, b) => a.day - b.day)
+    .filter((d, index, arr) => arr.findIndex((x) => x.day === d.day) === index);
+}
+
+function normalizeGroceryList(value: unknown): GroceryListItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const items: GroceryListItem[] = [];
+  for (const item of value) {
+    const source = asObject(item);
+    const categoryRaw = compactText(source.category, 'other');
+    const category = VALID_GROCERY_CATEGORIES.includes(categoryRaw as GroceryCategory)
+      ? (categoryRaw as GroceryCategory)
+      : 'other';
+
+    const name = compactText(source.item, 'item');
+    const quantity = compactText(source.quantity, '1');
+    items.push({ item: name, quantity, category });
+  }
+
+  return items;
+}
+
+function buildDeterministicFallback(summary: McpUserSummary): MealPlanningResult {
+  const preferenceHint = summary.profile.dietaryPreferences[0] ?? 'balanced';
+
+  const days: MealPlanDay[] = [1, 2, 3].map((day) => ({
+    day: day as 1 | 2 | 3,
+    meals: [
+      {
+        slot: 'breakfast',
+        name: `${preferenceHint} oatmeal bowl`,
+        portion: '1 bowl',
+        reason: 'Simple start with steady energy'
+      },
+      {
+        slot: 'lunch',
+        name: 'grain bowl with mixed vegetables and protein',
+        portion: '1 plate',
+        reason: 'Supports consistency and easy preparation'
+      },
+      {
+        slot: 'dinner',
+        name: 'stir-fry with vegetables and protein',
+        portion: '1 plate',
+        reason: 'Fits routine with flexible ingredients'
+      },
+      {
+        slot: 'snack',
+        name: 'fruit and nuts',
+        portion: '1 small serving',
+        reason: 'Convenient between meals'
+      }
+    ]
+  }));
+
+  return {
+    schemaVersion: 'v1',
+    days,
+    groceryList: [
+      { item: 'rolled oats', quantity: '1 bag', category: 'grains' },
+      { item: 'mixed vegetables', quantity: '6 cups', category: 'produce' },
+      { item: 'protein source (beans/tofu/chicken)', quantity: '6 servings', category: 'protein' },
+      { item: 'fruit', quantity: '9 pieces', category: 'produce' },
+      { item: 'nuts or seeds', quantity: '1 pack', category: 'pantry' },
+      { item: 'olive oil', quantity: '1 bottle', category: 'pantry' }
+    ],
+    reasoning: {
+      approach: 'Focus on simple repeatable meals that fit the provided goal, preferences, and schedule.',
+      constraintsApplied: ['3-day plan', 'compact grocery list', 'non-medical language only'],
+      safetyNote: 'For planning support only; not medical guidance.'
+    }
+  };
+}
+
+function normalizeResult(raw: Record<string, unknown>, fallback: MealPlanningResult): MealPlanningResult {
+  const days = normalizeDays(raw.days);
+  const groceryList = normalizeGroceryList(raw.groceryList);
+  const reasoning = asObject(raw.reasoning);
+
+  if (days.length !== 3) {
+    return fallback;
+  }
+
+  return {
+    schemaVersion: MEAL_PLAN_SCHEMA_VERSION,
+    days,
+    groceryList: groceryList.length > 0 ? groceryList : fallback.groceryList,
+    reasoning: {
+      approach: compactText(reasoning.approach, fallback.reasoning.approach),
+      constraintsApplied: Array.isArray(reasoning.constraintsApplied)
+        ? reasoning.constraintsApplied
+            .map((x) => compactText(x, ''))
+            .filter((x) => x.length > 0)
+            .slice(0, 12)
+        : fallback.reasoning.constraintsApplied,
+      safetyNote: compactText(reasoning.safetyNote, fallback.reasoning.safetyNote)
+    }
+  };
+}
+
+export async function generateThreeDayMealPlan(summary: McpUserSummary): Promise<MealPlanningResult> {
+  const llm = createLlmClientFromEnv();
+  const prompt = buildMealPlanningPrompt(summary);
+  const fallback = buildDeterministicFallback(summary);
+
+  try {
+    const response = await llm.generateText({
+      prompt,
+      systemPrompt:
+        'Return strict JSON only. Do not include medical claims. Keep rationale practical and lifestyle-oriented.',
+      maxOutputTokens: 1600,
+      temperature: 0.1
+    });
+
+    const parsed = parseJsonObject(response.text);
+    return normalizeResult(parsed, fallback);
+  } catch {
+    return fallback;
+  }
+}
