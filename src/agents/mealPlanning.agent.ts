@@ -36,6 +36,7 @@ export interface MealPlanningResult {
 
 const VALID_SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 const VALID_GROCERY_CATEGORIES: GroceryCategory[] = ['produce', 'protein', 'grains', 'dairy', 'pantry', 'other'];
+const UNSUPPORTIVE_TERMS = ['strict', 'perfect', 'failure', 'bad', 'lazy', 'guilt', 'punish'];
 
 function compactText(value: unknown, fallback: string): string {
   if (typeof value !== 'string') {
@@ -44,6 +45,16 @@ function compactText(value: unknown, fallback: string): string {
 
   const normalized = value.replace(/\s+/g, ' ').trim();
   return normalized || fallback;
+}
+
+function supportiveText(value: unknown, fallback: string): string {
+  const base = compactText(value, fallback);
+  let cleaned = base;
+  for (const term of UNSUPPORTIVE_TERMS) {
+    const pattern = new RegExp(`\\b${term}\\b`, 'gi');
+    cleaned = cleaned.replace(pattern, 'steady');
+  }
+  return cleaned;
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -85,7 +96,7 @@ function normalizeMeals(value: unknown): MealPlanMeal[] {
       slot,
       name: compactText(source.name, 'Simple meal option'),
       portion: compactText(source.portion, '1 serving'),
-      reason: compactText(source.reason, 'Aligned to user goals and preferences')
+      reason: supportiveText(source.reason, 'Supportive fit for your goals, preferences, and schedule')
     });
   }
 
@@ -147,25 +158,25 @@ function buildDeterministicFallback(summary: McpUserSummary): MealPlanningResult
         slot: 'breakfast',
         name: `${preferenceHint} oatmeal bowl`,
         portion: '1 bowl',
-        reason: 'Simple start with steady energy'
+        reason: 'Simple start that supports steady energy and a manageable morning routine.'
       },
       {
         slot: 'lunch',
         name: 'grain bowl with mixed vegetables and protein',
         portion: '1 plate',
-        reason: 'Supports consistency and easy preparation'
+        reason: 'Easy to prep and repeat, helping you stay consistent on busy days.'
       },
       {
         slot: 'dinner',
         name: 'stir-fry with vegetables and protein',
         portion: '1 plate',
-        reason: 'Fits routine with flexible ingredients'
+        reason: 'Flexible ingredients make this easier to adapt to your schedule and preferences.'
       },
       {
         slot: 'snack',
         name: 'fruit and nuts',
         portion: '1 small serving',
-        reason: 'Convenient between meals'
+        reason: 'Convenient option that supports steady momentum between meals.'
       }
     ]
   }));
@@ -182,9 +193,9 @@ function buildDeterministicFallback(summary: McpUserSummary): MealPlanningResult
       { item: 'olive oil', quantity: '1 bottle', category: 'pantry' }
     ],
     reasoning: {
-      approach: 'Focus on simple repeatable meals that fit the provided goal, preferences, and schedule.',
+      approach: 'Focus on simple repeatable meals that fit your goal, preferences, and schedule in a realistic way.',
       constraintsApplied: ['3-day plan', 'compact grocery list', 'non-medical language only'],
-      safetyNote: 'For planning support only; not medical guidance.'
+      safetyNote: 'For planning support only; not medical guidance. You can adjust portions and ingredients based on your comfort and needs.'
     }
   };
 }
@@ -203,14 +214,81 @@ function normalizeResult(raw: Record<string, unknown>, fallback: MealPlanningRes
     days,
     groceryList: groceryList.length > 0 ? groceryList : fallback.groceryList,
     reasoning: {
-      approach: compactText(reasoning.approach, fallback.reasoning.approach),
+      approach: supportiveText(reasoning.approach, fallback.reasoning.approach),
       constraintsApplied: Array.isArray(reasoning.constraintsApplied)
         ? reasoning.constraintsApplied
             .map((x) => compactText(x, ''))
             .filter((x) => x.length > 0)
             .slice(0, 12)
         : fallback.reasoning.constraintsApplied,
-      safetyNote: compactText(reasoning.safetyNote, fallback.reasoning.safetyNote)
+      safetyNote: supportiveText(reasoning.safetyNote, fallback.reasoning.safetyNote)
+    }
+  };
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((x) => (typeof x === 'string' ? x.trim() : ''))
+    .filter((x) => x.length > 0);
+}
+
+function asMcpSummary(input: unknown): McpUserSummary {
+  const source = asObject(input);
+  const profile = asObject(source.profile);
+  const challengeActivity = asObject(source.challengeActivity);
+  const communityEngagement = asObject(source.communityEngagement);
+  const purchaseHistory = asObject(source.purchaseHistory);
+  const checkIns = asObject(challengeActivity.checkIns);
+
+  return {
+    schemaVersion: 'v1',
+    generatedAt: compactText(source.generatedAt, new Date().toISOString()),
+    userId: compactText(source.userId, 'unknown-user'),
+    profile: {
+      onboardingCompleted: Boolean(profile.onboardingCompleted),
+      primaryGoal: typeof profile.primaryGoal === 'string' ? compactText(profile.primaryGoal, '') || null : null,
+      experienceLevel: typeof profile.experienceLevel === 'string' ? compactText(profile.experienceLevel, '') || null : null,
+      dietaryPreferences: toStringArray(profile.dietaryPreferences),
+      timeAvailability: typeof profile.timeAvailability === 'string' ? compactText(profile.timeAvailability, '') || null : null
+    },
+    challengeActivity: {
+      activeChallengeId:
+        typeof challengeActivity.activeChallengeId === 'string'
+          ? compactText(challengeActivity.activeChallengeId, '') || null
+          : null,
+      participationStatus:
+        typeof challengeActivity.participationStatus === 'string'
+          ? compactText(challengeActivity.participationStatus, '') || null
+          : null,
+      checkIns: {
+        total: Number(checkIns.total) || 0,
+        completed: Number(checkIns.completed) || 0,
+        partial: Number(checkIns.partial) || 0,
+        skipped: Number(checkIns.skipped) || 0,
+        completionRate: Number(checkIns.completionRate) || 0,
+        lastCheckInAt: typeof checkIns.lastCheckInAt === 'string' ? compactText(checkIns.lastCheckInAt, '') || null : null
+      }
+    },
+    communityEngagement: {
+      postsCount: Number(communityEngagement.postsCount) || 0,
+      reactionsGivenCount: Number(communityEngagement.reactionsGivenCount) || 0,
+      reactionsReceivedCount: Number(communityEngagement.reactionsReceivedCount) || 0,
+      lastPostAt: typeof communityEngagement.lastPostAt === 'string' ? compactText(communityEngagement.lastPostAt, '') || null : null
+    },
+    purchaseHistory: {
+      totalPurchases: Number(purchaseHistory.totalPurchases) || 0,
+      totalSpentCents: Number(purchaseHistory.totalSpentCents) || 0,
+      averageOrderValueCents: Number(purchaseHistory.averageOrderValueCents) || 0,
+      lastPurchaseAt: typeof purchaseHistory.lastPurchaseAt === 'string' ? compactText(purchaseHistory.lastPurchaseAt, '') || null : null,
+      topProductIds: toStringArray(purchaseHistory.topProductIds)
+    },
+    safety: {
+      piiIncluded: false,
+      rawHealthDataIncluded: false
     }
   };
 }
@@ -234,4 +312,14 @@ export async function generateThreeDayMealPlan(summary: McpUserSummary): Promise
   } catch {
     return fallback;
   }
+}
+
+export async function generateThreeDayMealPlanFromJson(userSummaryJson: string | Record<string, unknown>): Promise<MealPlanningResult> {
+  const parsed =
+    typeof userSummaryJson === 'string'
+      ? parseJsonObject(userSummaryJson)
+      : asObject(userSummaryJson);
+
+  const summary = asMcpSummary(parsed);
+  return generateThreeDayMealPlan(summary);
 }

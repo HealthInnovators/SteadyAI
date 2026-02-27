@@ -29,12 +29,23 @@ export interface CommunityGuideResult {
   };
 }
 
+const POPULARITY_TERMS = ['popular', 'popularity', 'top user', 'top users', 'most liked', 'likes', 'follower', 'followers', 'viral', 'rank'];
+
 function compactText(value: unknown, fallback: string): string {
   if (typeof value !== 'string') {
     return fallback;
   }
   const normalized = value.replace(/\s+/g, ' ').trim();
   return normalized || fallback;
+}
+
+function sanitizeNoPopularity(text: string): string {
+  let cleaned = text;
+  for (const term of POPULARITY_TERMS) {
+    const pattern = new RegExp(`\\b${term}\\b`, 'gi');
+    cleaned = cleaned.replace(pattern, 'consistent');
+  }
+  return cleaned;
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -58,6 +69,41 @@ function parseJsonObject(input: string): Record<string, unknown> {
   }
 }
 
+function safeCount(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(parsed));
+}
+
+function normalizeInput(input: unknown): McpCommunityEngagementSummaryInput {
+  const source = asObject(input);
+  const focusTopics = Array.isArray(source.focusTopics)
+    ? source.focusTopics.map((x) => compactText(x, '')).filter((x) => x.length > 0).slice(0, 8)
+    : [];
+  const availablePeers = Array.isArray(source.availablePeers)
+    ? source.availablePeers
+        .map((peer) => asObject(peer))
+        .map((peer) => ({
+          peerUserId: compactText(peer.peerUserId, ''),
+          sharedContext: compactText(peer.sharedContext, '')
+        }))
+        .filter((peer) => peer.peerUserId.length > 0)
+        .slice(0, 25)
+    : [];
+
+  return {
+    userId: compactText(source.userId, 'unknown-user'),
+    postsCount: safeCount(source.postsCount),
+    reactionsGivenCount: safeCount(source.reactionsGivenCount),
+    reactionsReceivedCount: safeCount(source.reactionsReceivedCount),
+    lastPostAt: typeof source.lastPostAt === 'string' ? compactText(source.lastPostAt, '') || null : null,
+    focusTopics,
+    availablePeers
+  };
+}
+
 function normalizeSuggestedPosts(value: unknown): SuggestedPost[] {
   if (!Array.isArray(value)) {
     return [];
@@ -67,9 +113,11 @@ function normalizeSuggestedPosts(value: unknown): SuggestedPost[] {
     .map((item) => {
       const source = asObject(item);
       return {
-        title: compactText(source.title, 'Share a quick update'),
-        contentPrompt: compactText(source.contentPrompt, 'Share one recent win or challenge and what helped.'),
-        reason: compactText(source.reason, 'Encourages consistent participation.')
+        title: sanitizeNoPopularity(compactText(source.title, 'Share a quick update')),
+        contentPrompt: sanitizeNoPopularity(
+          compactText(source.contentPrompt, 'Share one recent win or challenge and what helped.')
+        ),
+        reason: sanitizeNoPopularity(compactText(source.reason, 'Encourages consistent participation.'))
       };
     })
     .slice(0, 3);
@@ -91,8 +139,10 @@ function normalizeSuggestedPeers(value: unknown, availablePeers: CommunityPeerPr
 
     normalized.push({
       peerUserId,
-      outreachPrompt: compactText(source.outreachPrompt, 'Send a short check-in and ask how their week is going.'),
-      reason: compactText(source.reason, 'Supports consistent peer connection without ranking.')
+      outreachPrompt: sanitizeNoPopularity(
+        compactText(source.outreachPrompt, 'Send a short check-in and ask how their week is going.')
+      ),
+      reason: sanitizeNoPopularity(compactText(source.reason, 'Supports consistent peer connection without ranking.'))
     });
   }
 
@@ -154,7 +204,7 @@ function normalizeResult(
     schemaVersion: COMMUNITY_GUIDE_SCHEMA_VERSION,
     suggestedPosts: posts.length > 0 ? posts : fallback.suggestedPosts,
     suggestedPeers: peers.length > 0 ? peers : fallback.suggestedPeers,
-    engagementApproach: compactText(raw.engagementApproach, fallback.engagementApproach),
+    engagementApproach: sanitizeNoPopularity(compactText(raw.engagementApproach, fallback.engagementApproach)),
     fairness: {
       noPopularityBias: true,
       noRankingApplied: true
@@ -181,4 +231,12 @@ export async function generateCommunityGuide(input: McpCommunityEngagementSummar
   } catch {
     return fallback;
   }
+}
+
+export async function generateCommunityGuideFromJson(
+  summaryJson: string | Record<string, unknown>
+): Promise<CommunityGuideResult> {
+  const parsed = typeof summaryJson === 'string' ? parseJsonObject(summaryJson) : asObject(summaryJson);
+  const normalizedInput = normalizeInput(parsed);
+  return generateCommunityGuide(normalizedInput);
 }

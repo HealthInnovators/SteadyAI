@@ -218,6 +218,37 @@ export class ConsoleNotificationDispatcher implements NotificationDispatcher {
 export class NotificationSchedulerService {
   constructor(private readonly dispatcher: NotificationDispatcher = new ConsoleNotificationDispatcher()) {}
 
+  buildDailyCheckInReminderJob(profile: UserNotificationProfile, nowUtc: Date = new Date()): NotificationJob | null {
+    if (!profile.optIn.dailyCheckInReminder) {
+      return null;
+    }
+
+    if (!isValidTimezone(profile.schedule.timezone)) {
+      throw new Error('Invalid timezone');
+    }
+
+    assertHour(profile.schedule.dailyReminderHourLocal, 'dailyReminderHourLocal');
+    const at = nextDailyUtc(nowUtc, profile.schedule.timezone, profile.schedule.dailyReminderHourLocal);
+
+    return {
+      jobId: makeJobId(profile.userId, 'DAILY_CHECK_IN_REMINDER', at),
+      userId: profile.userId,
+      type: 'DAILY_CHECK_IN_REMINDER',
+      scheduledAtUtc: at,
+      timezone: profile.schedule.timezone,
+      payload: { kind: 'daily-check-in', supportiveTone: true, optIn: true }
+    };
+  }
+
+  async dispatchDailyCheckInReminder(profile: UserNotificationProfile, nowUtc: Date = new Date()): Promise<NotificationDispatchResult | null> {
+    const job = this.buildDailyCheckInReminderJob(profile, nowUtc);
+    if (!job) {
+      return null;
+    }
+
+    return this.dispatcher.dispatch(job);
+  }
+
   buildScheduledJobs(profile: UserNotificationProfile, nowUtc: Date = new Date()): NotificationJob[] {
     if (!isValidTimezone(profile.schedule.timezone)) {
       throw new Error('Invalid timezone');

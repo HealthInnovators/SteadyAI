@@ -25,6 +25,47 @@ describe('API integration', () => {
     await disconnectPrisma();
   });
 
+  it('POST /api/onboarding assigns rule-based group and 30-day challenge, returning full profile', async () => {
+    const user = await createUser('onboarding-user');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/onboarding',
+      headers: {
+        'x-test-user-id': user.id,
+        'x-test-user-email': user.email
+      },
+      payload: {
+        primaryGoal: 'Build muscle',
+        experienceLevel: 'Beginner',
+        dietaryPreferences: ['high-protein'],
+        timeAvailability: '45 min/day'
+      }
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+
+    assert.equal(body.id, user.id);
+    assert.equal(body.email, user.email);
+    assert.equal(body.primaryGoal, 'Build muscle');
+    assert.equal(body.experienceLevel, 'Beginner');
+    assert.equal(body.onboardingCompleted, true);
+    assert.ok(body.assignedCommunityGroupId);
+    assert.ok(body.assignedChallengeId);
+    assert.ok(body.participation);
+    assert.equal(body.participation.status, ParticipationStatus.JOINED);
+    assert.equal(body.participation.challenge.status, ChallengeStatus.ACTIVE);
+    assert.equal(body.participation.challenge.group.name, 'Strength Builders');
+
+    const startsAt = new Date(body.participation.challenge.startsAt);
+    const endsAt = new Date(body.participation.challenge.endsAt);
+    const durationMs = endsAt.getTime() - startsAt.getTime();
+    const minDurationMs = 29 * 24 * 60 * 60 * 1000;
+    const maxDurationMs = 31 * 24 * 60 * 60 * 1000;
+    assert.ok(durationMs >= minDurationMs && durationMs <= maxDurationMs);
+  });
+
   it('POST /api/challenges/check-in stores first entry and blocks duplicate same-day check-in', async () => {
     const prisma = getPrismaClient();
     const user = await createUser('checkin-user');
@@ -63,6 +104,32 @@ describe('API integration', () => {
 
     const totalRows = await prisma.challengeCheckIn.count();
     assert.equal(totalRows, 1);
+  });
+
+  it('POST /api/challenges/enroll marks user enrolled and creates default participation', async () => {
+    const user = await createUser('enroll-user');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/challenges/enroll',
+      payload: {
+        userId: user.id
+      }
+    });
+
+    assert.equal(response.statusCode, 201);
+    const body = response.json();
+    assert.equal(body.userId, user.id);
+    assert.equal(body.enrolled, true);
+    assert.ok(body.challengeId);
+    assert.ok(body.groupId);
+    assert.ok(body.participation?.id);
+    assert.equal(body.participation?.status, ParticipationStatus.JOINED);
+
+    const participationCount = await getPrismaClient().challengeParticipation.count({
+      where: { userId: user.id }
+    });
+    assert.equal(participationCount, 1);
   });
 
   it('GET /api/community/feed returns posts from user group and active challenge scope', async () => {

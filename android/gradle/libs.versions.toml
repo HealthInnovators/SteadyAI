@@ -16,6 +16,7 @@ hiltNavigationCompose = "1.2.0"
 coroutines = "1.8.1"
 securityCrypto = "1.1.0-alpha06"
 googlePlayServicesAuth = "21.2.0"
+healthConnectClient = "1.1.0-alpha12"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,6 +43,7 @@ hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 google-play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "googlePlayServicesAuth" }
+androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnectClient" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

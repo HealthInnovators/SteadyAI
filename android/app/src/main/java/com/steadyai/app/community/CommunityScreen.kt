@@ -19,18 +19,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,8 +66,7 @@ data class CommunityUiState(
     val nextCursorId: String? = null,
     val selectedPostType: CommunityPostType = CommunityPostType.WIN,
     val draftContent: String = "",
-    val currentUserId: String? = null,
-    val createdPostSignal: Int = 0
+    val currentUserId: String? = null
 ) {
     val hasMore: Boolean
         get() = !nextCursorCreatedAt.isNullOrBlank() && !nextCursorId.isNullOrBlank()
@@ -152,8 +146,7 @@ class CommunityViewModel @Inject constructor(
                             draftContent = "",
                             posts = listOf(result.data) + current.posts.filterNot { it.id == result.data.id },
                             error = null,
-                            createError = null,
-                            createdPostSignal = current.createdPostSignal + 1
+                            createError = null
                         )
                     }
                 }
@@ -165,7 +158,7 @@ class CommunityViewModel @Inject constructor(
         }
     }
 
-    fun toggleReaction(postId: String, type: CommunityReactionType) {
+    fun reactToPost(postId: String, type: CommunityReactionType) {
         val userId = uiState.value.currentUserId
         if (userId.isNullOrBlank()) {
             _uiState.update { it.copy(reactionError = "Could not determine current user for reaction") }
@@ -176,24 +169,18 @@ class CommunityViewModel @Inject constructor(
         val targetPost = state.posts.firstOrNull { it.id == postId } ?: return
         val previousPosts = state.posts
         val existingReaction = targetPost.reactions.firstOrNull { it.userId == userId }
-        val isRemoval = existingReaction?.type == type.name
+        val updatedReaction = CommunityReaction(
+            id = existingReaction?.id ?: "local:$postId:$userId",
+            type = type.name,
+            userId = userId,
+            createdAt = existingReaction?.createdAt ?: Instant.now().toString()
+        )
 
-        val optimisticPost = if (isRemoval) {
-            targetPost.copy(reactions = targetPost.reactions.filterNot { it.userId == userId })
-        } else {
-            val updatedReaction = CommunityReaction(
-                id = existingReaction?.id ?: "local:$postId:$userId",
-                type = type.name,
-                userId = userId,
-                createdAt = existingReaction?.createdAt ?: Instant.now().toString()
-            )
-
-            targetPost.copy(
-                reactions = targetPost.reactions
-                    .filterNot { it.userId == userId }
-                    .plus(updatedReaction)
-            )
-        }
+        val optimisticPost = targetPost.copy(
+            reactions = targetPost.reactions
+                .filterNot { it.userId == userId }
+                .plus(updatedReaction)
+        )
 
         _uiState.update {
             it.copy(
@@ -203,43 +190,77 @@ class CommunityViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            if (isRemoval) {
-                when (val deleteResult = repository.deleteReaction(postId)) {
-                    is ApiResult.Success -> Unit
-                    is ApiResult.Failure -> {
-                        _uiState.update {
-                            it.copy(
-                                posts = previousPosts,
-                                reactionError = deleteResult.error.message
+            when (val upsertResult = repository.upsertReaction(postId = postId, type = type)) {
+                is ApiResult.Success -> {
+                    _uiState.update { current ->
+                        current.copy(
+                            posts = replaceReaction(
+                                posts = current.posts,
+                                postId = postId,
+                                userId = userId,
+                                reaction = upsertResult.data
                             )
-                        }
+                        )
                     }
+                    syncFeedFromServer()
                 }
-            } else {
-                when (val upsertResult = repository.upsertReaction(postId = postId, type = type)) {
-                    is ApiResult.Success -> {
-                        _uiState.update { current ->
-                            current.copy(
-                                posts = replaceReaction(
-                                    posts = current.posts,
-                                    postId = postId,
-                                    userId = userId,
-                                    reaction = upsertResult.data
-                                )
-                            )
-                        }
-                    }
 
-                    is ApiResult.Failure -> {
-                        _uiState.update {
-                            it.copy(
-                                posts = previousPosts,
-                                reactionError = upsertResult.error.message
-                            )
-                        }
+                is ApiResult.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            posts = previousPosts,
+                            reactionError = upsertResult.error.message
+                        )
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun syncFeedFromServer() {
+        when (val feedResult = repository.getCommunityFeed(limit = 20)) {
+            is ApiResult.Success -> {
+                val scopedPosts = applyFeedScope(
+                    posts = feedResult.data.posts,
+                    groupId = feedResult.data.groupId,
+                    activeChallengeId = feedResult.data.activeChallengeId
+                )
+
+                _uiState.update { current ->
+                    current.copy(
+                        posts = scopedPosts,
+                        groupId = feedResult.data.groupId,
+                        challengeId = feedResult.data.activeChallengeId,
+                        nextCursorCreatedAt = feedResult.data.nextCursorCreatedAt,
+                        nextCursorId = feedResult.data.nextCursorId
+                    )
+                }
+            }
+
+            is ApiResult.Failure -> {
+                _uiState.update { it.copy(reactionError = "Reaction saved, but failed to refresh feed") }
+            }
+        }
+    }
+
+    private fun applyFeedScope(
+        posts: List<CommunityPost>,
+        groupId: String?,
+        activeChallengeId: String?
+    ): List<CommunityPost> {
+        if (groupId.isNullOrBlank()) {
+            return emptyList()
+        }
+
+        return posts.filter { post ->
+            val sameGroup = post.group?.id == groupId
+            val challenge = post.challenge
+            val inActiveScope = when {
+                activeChallengeId.isNullOrBlank() -> challenge == null
+                else -> challenge == null || challenge.id == activeChallengeId
+            }
+
+            sameGroup && inActiveScope
         }
     }
 
@@ -264,22 +285,28 @@ class CommunityViewModel @Inject constructor(
             }
 
             when (
-                val result = repository.getFeedPage(
+                val result = repository.getCommunityFeed(
                     limit = 20,
                     cursorCreatedAt = cursorCreatedAt,
                     cursorId = cursorId
                 )
             ) {
                 is ApiResult.Success -> {
+                    val scopedPosts = applyFeedScope(
+                        posts = result.data.posts,
+                        groupId = result.data.groupId,
+                        activeChallengeId = result.data.activeChallengeId
+                    )
+
                     _uiState.update { current ->
                         current.copy(
                             loading = false,
                             refreshing = false,
                             loadingMore = false,
                             posts = if (reset) {
-                                result.data.posts
+                                scopedPosts
                             } else {
-                                (current.posts + result.data.posts).distinctBy { it.id }
+                                (current.posts + scopedPosts).distinctBy { it.id }
                             },
                             groupId = result.data.groupId,
                             challengeId = result.data.activeChallengeId,
@@ -337,13 +364,6 @@ class CommunityViewModel @Inject constructor(
 @Composable
 fun CommunityScreen(viewModel: CommunityViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
-    var showCreatePostModal by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(state.createdPostSignal) {
-        if (state.createdPostSignal > 0) {
-            showCreatePostModal = false
-        }
-    }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -357,15 +377,20 @@ fun CommunityScreen(viewModel: CommunityViewModel = hiltViewModel()) {
                     Text("Community Feed", style = MaterialTheme.typography.titleLarge)
                     Text("Group: ${state.groupId ?: "-"}", style = MaterialTheme.typography.bodySmall)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { showCreatePostModal = true }) {
-                        Text("New post")
-                    }
-                    Button(onClick = viewModel::refresh, enabled = !state.loading && !state.refreshing) {
-                        Text("Refresh")
-                    }
+                Button(onClick = viewModel::refresh, enabled = !state.loading && !state.refreshing) {
+                    Text("Refresh")
                 }
             }
+
+            CreatePostComposer(
+                selectedType = state.selectedPostType,
+                draftContent = state.draftContent,
+                creatingPost = state.creatingPost,
+                error = state.createError,
+                onSelectType = viewModel::selectPostType,
+                onContentChanged = viewModel::updateDraftContent,
+                onSubmit = viewModel::submitPost
+            )
 
             PullToRefreshBox(
                 modifier = Modifier
@@ -379,48 +404,33 @@ fun CommunityScreen(viewModel: CommunityViewModel = hiltViewModel()) {
                     state.posts.isEmpty() -> FeedStateMessage(state.error ?: "No posts yet. Create the first one.")
                     else -> CommunityFeedList(
                         state = state,
-                        onToggleReaction = viewModel::toggleReaction,
+                        onToggleReaction = viewModel::reactToPost,
                         onLoadMore = viewModel::loadMore
                     )
                 }
             }
         }
     }
-
-    if (showCreatePostModal) {
-        CreatePostModal(
-            selectedType = state.selectedPostType,
-            draftContent = state.draftContent,
-            creatingPost = state.creatingPost,
-            error = state.createError,
-            onDismiss = { showCreatePostModal = false },
-            onSelectType = viewModel::selectPostType,
-            onContentChanged = viewModel::updateDraftContent,
-            onSubmit = viewModel::submitPost
-        )
-    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CreatePostModal(
+private fun CreatePostComposer(
     selectedType: CommunityPostType,
     draftContent: String,
     creatingPost: Boolean,
     error: String?,
-    onDismiss: () -> Unit,
     onSelectType: (CommunityPostType) -> Unit,
     onContentChanged: (String) -> Unit,
     onSubmit: () -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Share an update", style = MaterialTheme.typography.titleMedium)
+            Text("Create Post", style = MaterialTheme.typography.titleMedium)
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -466,14 +476,6 @@ private fun CreatePostModal(
 
             error?.let {
                 Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-
-            Button(
-                onClick = onDismiss,
-                enabled = !creatingPost,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Cancel")
             }
         }
     }

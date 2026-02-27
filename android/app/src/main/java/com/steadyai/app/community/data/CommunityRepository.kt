@@ -25,7 +25,7 @@ class CommunityRepository @Inject constructor(
     private val apiService: ApiService,
     private val apiClient: ApiClient
 ) {
-    suspend fun getFeedPage(
+    suspend fun getCommunityFeed(
         limit: Int = 20,
         cursorCreatedAt: String? = null,
         cursorId: String? = null
@@ -52,6 +52,18 @@ class CommunityRepository @Inject constructor(
 
             is ApiResult.Failure -> result
         }
+    }
+
+    suspend fun getFeedPage(
+        limit: Int = 20,
+        cursorCreatedAt: String? = null,
+        cursorId: String? = null
+    ): ApiResult<CommunityFeedPage> {
+        return getCommunityFeed(
+            limit = limit,
+            cursorCreatedAt = cursorCreatedAt,
+            cursorId = cursorId
+        )
     }
 
     suspend fun createPost(

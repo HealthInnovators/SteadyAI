@@ -10,6 +10,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +41,7 @@ data class CheckInUiState(
     val loading: Boolean = false,
     val submittingStatus: CheckInStatus? = null,
     val latestStatus: CheckInStatus? = null,
+    val showConfirmation: Boolean = false,
     val confirmationMessage: String? = null,
     val error: String? = null,
     val summary: ChallengeCheckInResponse? = null
@@ -59,6 +61,7 @@ class CheckInViewModel @Inject constructor(
                 it.copy(
                     loading = true,
                     submittingStatus = status,
+                    showConfirmation = false,
                     error = null,
                     confirmationMessage = null
                 )
@@ -69,6 +72,7 @@ class CheckInViewModel @Inject constructor(
                         loading = false,
                         submittingStatus = null,
                         latestStatus = status,
+                        showConfirmation = true,
                         confirmationMessage = supportiveCopyFor(status),
                         summary = result.data
                     )
@@ -91,6 +95,10 @@ class CheckInViewModel @Inject constructor(
             CheckInStatus.PARTIAL -> "Good progress. A partial day still counts as consistency."
             CheckInStatus.SKIPPED -> "Thanks for checking in. Tomorrow is a fresh start and we're with you."
         }
+    }
+
+    fun dismissConfirmation() {
+        _uiState.update { it.copy(showConfirmation = false) }
     }
 }
 
@@ -117,13 +125,13 @@ fun CheckInScreen(viewModel: CheckInViewModel = hiltViewModel()) {
             ) {
                 CheckInStatus.entries.forEach { status ->
                     val isSubmitting = state.loading && state.submittingStatus == status
-                    val wasSelected = state.latestStatus == status
+                    val isSelected = state.submittingStatus == status || state.latestStatus == status
 
                     Button(
                         onClick = { viewModel.submitCheckIn(status) },
                         enabled = !state.loading,
                         modifier = Modifier.weight(1f),
-                        colors = if (wasSelected) {
+                        colors = if (isSelected) {
                             ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                         } else {
                             ButtonDefaults.buttonColors()
@@ -139,14 +147,24 @@ fun CheckInScreen(viewModel: CheckInViewModel = hiltViewModel()) {
                 }
             }
 
-            state.confirmationMessage?.let { message ->
+            val confirmationMessage = state.confirmationMessage
+            if (state.showConfirmation && confirmationMessage != null) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text("Check-in saved", style = MaterialTheme.typography.titleMedium)
-                        Text(message, style = MaterialTheme.typography.bodyMedium)
+                        Text(confirmationMessage, style = MaterialTheme.typography.bodyMedium)
+                        state.summary?.latestCheckIn?.let { latest ->
+                            Text(
+                                "Latest: ${latest.status} at ${latest.date}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        OutlinedButton(onClick = viewModel::dismissConfirmation, modifier = Modifier.fillMaxWidth()) {
+                            Text("Done")
+                        }
                     }
                 }
             }

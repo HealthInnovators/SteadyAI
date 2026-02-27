@@ -2,6 +2,7 @@ import { PostType } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { authenticateRequest } from '../middleware/auth';
+import { generateCommunityDailySummary } from '../services/community-daily-summary.service';
 import { getCommunityFeed } from '../services/community-feed.service';
 import { ALLOWED_POST_TYPES, createCommunityPost } from '../services/community-post.service';
 
@@ -14,6 +15,12 @@ interface CommunityFeedQuery {
 interface CreateCommunityPostBody {
   type: PostType;
   content: string;
+}
+
+interface CommunityDailySummaryBody {
+  sinceHours?: number;
+  save?: boolean;
+  saveDir?: string;
 }
 
 export async function communityRoutes(fastify: FastifyInstance): Promise<void> {
@@ -80,6 +87,34 @@ export async function communityRoutes(fastify: FastifyInstance): Promise<void> {
 
         request.log.error(error);
         return reply.status(400).send({ error: message });
+      }
+    }
+  );
+
+  fastify.post<{ Body: CommunityDailySummaryBody }>(
+    '/community/daily-summary',
+    { preHandler: authenticateRequest },
+    async (request, reply) => {
+      const userId = request.userId;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { sinceHours, save, saveDir } = request.body ?? {};
+
+      try {
+        const result = await generateCommunityDailySummary({
+          userId,
+          sinceHours,
+          save,
+          saveDir
+        });
+
+        return reply.status(200).send(result);
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to generate daily summary' });
       }
     }
   );

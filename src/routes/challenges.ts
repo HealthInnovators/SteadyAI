@@ -3,10 +3,25 @@ import type { FastifyInstance } from 'fastify';
 
 import { authenticateRequest, optionalAuthenticateRequest } from '../middleware/auth';
 import { ALLOWED_DAILY_STATUSES, createDailyChallengeCheckIn } from '../services/challenge-checkin.service';
+import { enrollUserInChallenge } from '../services/challenge-enrollment.service';
+import { generateWeeklyReflection } from '../services/challenge-weekly-reflection.service';
 import { getPrismaClient } from '../db/prisma';
 
 interface ChallengeCheckInBody {
   status: DailyParticipationStatus;
+}
+
+interface ChallengeEnrollBody {
+  userId?: string;
+}
+
+interface WeeklyReflectionBody {
+  challengeId?: string;
+  weekLabel?: string;
+  totalCheckIns: number;
+  completedCount: number;
+  partialCount: number;
+  skippedCount: number;
 }
 
 export async function challengeRoutes(fastify: FastifyInstance): Promise<void> {
@@ -128,5 +143,75 @@ export async function challengeRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
   );
-}
 
+  fastify.post<{ Body: ChallengeEnrollBody }>(
+    '/challenges/enroll',
+    { preHandler: optionalAuthenticateRequest },
+    async (request, reply) => {
+      const requestedUserId = request.body?.userId;
+      const authenticatedUserId = request.userId;
+      const finalUserId = requestedUserId ?? authenticatedUserId;
+
+      if (!finalUserId) {
+        return reply.status(400).send({ error: 'userId is required' });
+      }
+
+      if (requestedUserId && authenticatedUserId && requestedUserId !== authenticatedUserId) {
+        return reply.status(403).send({ error: 'userId does not match authenticated user' });
+      }
+
+      try {
+        const result = await enrollUserInChallenge({ userId: finalUserId });
+        return reply.status(201).send(result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to enroll user';
+
+        if (message.includes('User not found')) {
+          return reply.status(404).send({ error: message });
+        }
+
+        request.log.error(error);
+        return reply.status(400).send({ error: message });
+      }
+    }
+  );
+
+  fastify.post<{ Body: WeeklyReflectionBody }>(
+    '/challenges/weekly-reflection',
+    { preHandler: authenticateRequest },
+    async (request, reply) => {
+      if (!request.userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const body = request.body;
+
+      if (
+        typeof body?.totalCheckIns !== 'number' ||
+        typeof body?.completedCount !== 'number' ||
+        typeof body?.partialCount !== 'number' ||
+        typeof body?.skippedCount !== 'number'
+      ) {
+        return reply.status(400).send({
+          error: 'totalCheckIns, completedCount, partialCount, and skippedCount must be numbers'
+        });
+      }
+
+      try {
+        const reflection = generateWeeklyReflection({
+          challengeId: body.challengeId,
+          weekLabel: body.weekLabel,
+          totalCheckIns: body.totalCheckIns,
+          completedCount: body.completedCount,
+          partialCount: body.partialCount,
+          skippedCount: body.skippedCount
+        });
+
+        return reply.status(200).send(reflection);
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to generate weekly reflection' });
+      }
+    }
+  );
+}

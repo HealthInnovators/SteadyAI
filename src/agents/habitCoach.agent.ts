@@ -70,6 +70,41 @@ function clampDays(value: unknown): number {
   return Math.min(Math.max(Math.round(parsed), 1), 14);
 }
 
+function safeNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function clampCount(value: unknown): number {
+  return Math.max(0, Math.floor(safeNumber(value, 0)));
+}
+
+function normalizeSummary(input: unknown): ChallengeParticipationSummary {
+  const source = asObject(input);
+  const totalCheckIns = clampCount(source.totalCheckIns);
+  const completedCheckIns = clampCount(source.completedCheckIns);
+  const partialCheckIns = clampCount(source.partialCheckIns);
+  const skippedCheckIns = clampCount(source.skippedCheckIns);
+  const computedRate = totalCheckIns > 0 ? completedCheckIns / totalCheckIns : 0;
+  const completionRate = Math.min(Math.max(safeNumber(source.completionRate, computedRate), 0), 1);
+
+  return {
+    challengeId: typeof source.challengeId === 'string' ? compactText(source.challengeId, '') || null : null,
+    participationStatus:
+      typeof source.participationStatus === 'string' ? compactText(source.participationStatus, '') || null : null,
+    periodDays: Math.min(Math.max(Math.floor(safeNumber(source.periodDays, 7)), 1), 30),
+    totalCheckIns,
+    completedCheckIns,
+    partialCheckIns,
+    skippedCheckIns,
+    completionRate,
+    lastCheckInAt: typeof source.lastCheckInAt === 'string' ? compactText(source.lastCheckInAt, '') || null : null
+  };
+}
+
 function buildDeterministicFallback(summary: ChallengeParticipationSummary): HabitCoachResult {
   const completionRatePct = Math.round(summary.completionRate * 100);
   const reflection =
@@ -137,4 +172,11 @@ export async function generateWeeklyHabitReflection(summary: ChallengeParticipat
   } catch {
     return fallback;
   }
+}
+
+export async function generateWeeklyHabitReflectionFromJson(
+  summaryJson: string | Record<string, unknown>
+): Promise<HabitCoachResult> {
+  const parsed = typeof summaryJson === 'string' ? parseJsonObject(summaryJson) : asObject(summaryJson);
+  return generateWeeklyHabitReflection(normalizeSummary(parsed));
 }

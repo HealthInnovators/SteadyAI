@@ -65,6 +65,7 @@ dependencies {
     kapt(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.health.connect.client)
     implementation(libs.google.play.services.auth)
     implementation(libs.retrofit.core)
 
