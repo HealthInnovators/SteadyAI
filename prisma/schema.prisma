@@ -1,0 +1,355 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ChallengeStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ParticipationStatus {
+  JOINED
+  COMPLETED
+  DROPPED
+}
+
+enum DailyParticipationStatus {
+  COMPLETED
+  PARTIAL
+  SKIPPED
+}
+
+enum ReactionType {
+  LIKE
+  CELEBRATE
+  SUPPORT
+}
+
+enum PostType {
+  WIN
+  QUESTION
+  CHECK_IN
+}
+
+enum PurchaseStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum HealthProvider {
+  HEALTH_CONNECT
+}
+
+enum HealthConnectionStatus {
+  ACTIVE
+  REVOKED
+  ERROR
+}
+
+enum HealthRecordType {
+  STEPS
+  HEART_RATE
+  SLEEP_SESSION
+  WORKOUT
+  WEIGHT
+  HEIGHT
+  BLOOD_GLUCOSE
+}
+
+enum SyncBatchStatus {
+  STARTED
+  COMPLETED
+  FAILED
+}
+
+enum NutritionInputType {
+  TEXT
+  IMAGE
+  TEXT_AND_IMAGE
+}
+
+enum NutritionEntryStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model User {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  email               String                   @unique
+  username            String                   @unique
+  displayName         String?
+  primaryGoal         String?
+  experienceLevel     String?
+  dietaryPreferences  String[]                 @default([])
+  timeAvailability    String?
+  onboardingCompleted Boolean                  @default(false)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  ownedGroups         CommunityGroup[]
+  challenges          Challenge[]              @relation("ChallengeCreator")
+  participations      ChallengeParticipation[]
+  posts               Post[]
+  reactions           Reaction[]
+  products            Product[]
+  purchases           Purchase[]
+  healthConnections   UserHealthConnection[]
+  healthRecords       HealthRecord[]
+  nutritionEntries    NutritionEntry[]
+}
+
+model CommunityGroup {
+  id          String      @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  ownerId     String      @db.Uuid
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  challenges  Challenge[]
+  posts       Post[]
+}
+
+model Challenge {
+  id             String                   @id @default(uuid()) @db.Uuid
+  groupId        String                   @db.Uuid
+  creatorId      String                   @db.Uuid
+  title          String
+  description    String?
+  dailyTaskDescription String?
+  startsAt       DateTime?
+  endsAt         DateTime?
+  status         ChallengeStatus          @default(DRAFT)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  group          CommunityGroup           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator        User                     @relation("ChallengeCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  participations ChallengeParticipation[]
+  checkIns       ChallengeCheckIn[]
+  posts          Post[]
+}
+
+model ChallengeParticipation {
+  id          String              @id @default(uuid()) @db.Uuid
+  challengeId String              @db.Uuid
+  userId      String              @db.Uuid
+  status      ParticipationStatus @default(JOINED)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  challenge   Challenge           @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns    ChallengeCheckIn[]
+
+  @@unique([challengeId, userId])
+  @@unique([userId])
+}
+
+model ChallengeCheckIn {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  challengeId         String                   @db.Uuid
+  participationId     String                   @db.Uuid
+  checkInDate         DateTime
+  participationStatus DailyParticipationStatus
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  challenge           Challenge                @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  participation       ChallengeParticipation   @relation(fields: [participationId], references: [id], onDelete: Cascade)
+
+  @@unique([participationId, checkInDate])
+  @@index([challengeId, checkInDate])
+}
+
+model Post {
+  id          String         @id @default(uuid()) @db.Uuid
+  authorId    String         @db.Uuid
+  groupId     String         @db.Uuid
+  challengeId String?        @db.Uuid
+  type        PostType
+  content     String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  group       CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  challenge   Challenge?     @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+  reactions   Reaction[]
+}
+
+model Reaction {
+  id        String       @id @default(uuid()) @db.Uuid
+  postId    String       @db.Uuid
+  userId    String       @db.Uuid
+  type      ReactionType @default(LIKE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  post      Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model Product {
+  id          String     @id @default(uuid()) @db.Uuid
+  creatorId   String     @db.Uuid
+  name        String
+  description String?
+  priceCents  Int
+  currency    String     @default("USD")
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  creator     User       @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  purchases   Purchase[]
+}
+
+model Purchase {
+  id          String         @id @default(uuid()) @db.Uuid
+  buyerId     String         @db.Uuid
+  productId   String         @db.Uuid
+  quantity    Int            @default(1)
+  totalCents  Int
+  status      PurchaseStatus @default(PENDING)
+  purchasedAt DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  buyer       User           @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  product     Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+model UserHealthConnection {
+  id              String                 @id @default(uuid()) @db.Uuid
+  userId          String                 @db.Uuid
+  provider        HealthProvider         @default(HEALTH_CONNECT)
+  status          HealthConnectionStatus @default(ACTIVE)
+  grantedScopes   String[]
+  deviceInstallId String
+  lastSyncedAt    DateTime?
+  lastCursor      String?
+  revokedAt       DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncBatches     HealthSyncBatch[]
+  records         HealthRecord[]
+
+  @@unique([userId, provider, deviceInstallId])
+  @@index([userId, provider])
+}
+
+model HealthSyncBatch {
+  id              String               @id @default(uuid()) @db.Uuid
+  connectionId    String               @db.Uuid
+  startedAt       DateTime             @default(now())
+  completedAt     DateTime?
+  status          SyncBatchStatus      @default(STARTED)
+  recordsReceived Int                  @default(0)
+  errorMessage    String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  connection      UserHealthConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  records         HealthRecord[]
+
+  @@index([connectionId, startedAt])
+}
+
+model HealthRecord {
+  id               String               @id @default(uuid()) @db.Uuid
+  userId           String               @db.Uuid
+  connectionId     String               @db.Uuid
+  syncBatchId      String?              @db.Uuid
+  externalRecordId String
+  type             HealthRecordType
+  startTime        DateTime
+  endTime          DateTime?
+  value            Decimal?             @db.Decimal(12, 4)
+  unit             String?
+  sourceApp        String?
+  metadata         Json?
+  sourceUpdatedAt  DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection       UserHealthConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  syncBatch        HealthSyncBatch?     @relation(fields: [syncBatchId], references: [id], onDelete: SetNull)
+
+  @@unique([connectionId, externalRecordId, type])
+  @@index([userId, type, startTime])
+}
+
+model NutritionEntry {
+  id            String                @id @default(uuid()) @db.Uuid
+  userId        String                @db.Uuid
+  inputType     NutritionInputType
+  rawText       String?
+  consumedAt    DateTime
+  status        NutritionEntryStatus  @default(PENDING)
+  totalCalories Int?
+  totalProteinG Decimal?              @db.Decimal(8, 2)
+  totalCarbsG   Decimal?              @db.Decimal(8, 2)
+  totalFatG     Decimal?              @db.Decimal(8, 2)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images        NutritionImage[]
+  items         NutritionItem[]
+  analyses      NutritionAiAnalysis[]
+
+  @@index([userId, consumedAt])
+  @@index([status])
+}
+
+model NutritionImage {
+  id         String         @id @default(uuid()) @db.Uuid
+  entryId    String         @db.Uuid
+  storageUrl String
+  mimeType   String?
+  width      Int?
+  height     Int?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  entry      NutritionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+}
+
+model NutritionItem {
+  id         String         @id @default(uuid()) @db.Uuid
+  entryId    String         @db.Uuid
+  name       String
+  quantity   Decimal?       @db.Decimal(10, 2)
+  unit       String?
+  calories   Int
+  proteinG   Decimal?       @db.Decimal(8, 2)
+  carbsG     Decimal?       @db.Decimal(8, 2)
+  fatG       Decimal?       @db.Decimal(8, 2)
+  confidence Decimal?       @db.Decimal(5, 4)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  entry      NutritionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
+}
+
+model NutritionAiAnalysis {
+  id            String               @id @default(uuid()) @db.Uuid
+  entryId       String               @db.Uuid
+  modelName     String
+  modelVersion  String?
+  promptVersion String?
+  status        NutritionEntryStatus @default(PROCESSED)
+  confidence    Decimal?             @db.Decimal(5, 4)
+  rawResponse   Json?
+  errorMessage  String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  entry         NutritionEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId, createdAt])
+}
