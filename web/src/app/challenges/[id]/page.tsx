@@ -105,21 +105,6 @@ export default function ChallengeDetailsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <Link href="/" className="text-2xl font-bold text-indigo-600">
-              Steady AI
-            </Link>
-            <div className="space-x-4">
-              <Link href="/challenges" className="text-indigo-600 font-semibold">
-                Challenges
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
-
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {error && (
           <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg">

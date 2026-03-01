@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 
+import { agentRoutes } from './agents';
 import { challengeRoutes } from './challenges';
 import { communityRoutes } from './community';
 import { educatorRoutes } from './educator';
@@ -11,6 +12,7 @@ import { nutritionRoutes } from './nutrition';
 import { storeRoutes } from './store';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
+  await fastify.register(agentRoutes);
   await fastify.register(challengeRoutes);
   await fastify.register(communityRoutes);
   await fastify.register(educatorRoutes);

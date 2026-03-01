@@ -24,6 +24,8 @@ export async function resetIntegrationDb(): Promise<void> {
     prisma.challengeCheckIn.deleteMany(),
     prisma.reaction.deleteMany(),
     prisma.post.deleteMany(),
+    prisma.notificationDispatchLog.deleteMany(),
+    prisma.userNotificationSettings.deleteMany(),
     prisma.challengeParticipation.deleteMany(),
     prisma.challenge.deleteMany(),
     prisma.communityGroup.deleteMany(),

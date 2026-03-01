@@ -58,6 +58,11 @@ export class ApiClient {
     }
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      const devUserId = getDevUserId();
+      if (devUserId) {
+        headers.set('x-test-user-id', devUserId);
+      }
     }
 
     const hasBody = 'body' in options && options.body !== undefined;
@@ -120,10 +125,12 @@ export class ApiClient {
       return new ApiClientError(message, response.status, payload);
     }
 
-    const textPayload = await response.text();
+const textPayload = await response.text();
     return new ApiClientError(textPayload || `Request failed with status ${response.status}`, response.status, textPayload || undefined);
   }
 }
+
+const DEV_USER_ID_STORAGE_KEY = 'steadyai.dev-user-id';
 
 function normalizeToken(token: string | undefined | null): string | undefined {
   return token?.trim() || undefined;
@@ -131,4 +138,13 @@ function normalizeToken(token: string | undefined | null): string | undefined {
 
 function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '');
+}
+
+function getDevUserId(): string | undefined {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  const value = window.localStorage.getItem(DEV_USER_ID_STORAGE_KEY);
+  return value?.trim() || undefined;
 }

@@ -46,6 +46,18 @@ enum PurchaseStatus {
   REFUNDED
 }
 
+enum NotificationType {
+  DAILY_CHECK_IN_REMINDER
+  WEEKLY_REFLECTION
+  COMMUNITY_REPLIES
+}
+
+enum NotificationDeliveryStatus {
+  SENT
+  SKIPPED
+  FAILED
+}
+
 enum HealthProvider {
   HEALTH_CONNECT
 }
@@ -103,6 +115,8 @@ model User {
   reactions           Reaction[]
   products            Product[]
   purchases           Purchase[]
+  notificationSettings UserNotificationSettings?
+  notificationDispatchLogs NotificationDispatchLog[]
   healthConnections   UserHealthConnection[]
   healthRecords       HealthRecord[]
   nutritionEntries    NutritionEntry[]
@@ -151,7 +165,7 @@ model ChallengeParticipation {
   checkIns    ChallengeCheckIn[]
 
   @@unique([challengeId, userId])
-  @@unique([userId])
+  @@index([userId])
 }
 
 model ChallengeCheckIn {
@@ -174,6 +188,7 @@ model Post {
   authorId    String         @db.Uuid
   groupId     String         @db.Uuid
   challengeId String?        @db.Uuid
+  parentPostId String?       @db.Uuid
   type        PostType
   content     String
   createdAt   DateTime       @default(now())
@@ -181,7 +196,11 @@ model Post {
   author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   group       CommunityGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   challenge   Challenge?     @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+  parentPost  Post?          @relation("PostReplies", fields: [parentPostId], references: [id], onDelete: SetNull)
+  replies     Post[]         @relation("PostReplies")
   reactions   Reaction[]
+
+  @@index([parentPostId])
 }
 
 model Reaction {
@@ -223,6 +242,43 @@ model Purchase {
   updatedAt   DateTime       @updatedAt
   buyer       User           @relation(fields: [buyerId], references: [id], onDelete: Cascade)
   product     Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+}
+
+model UserNotificationSettings {
+  id                           String   @id @default(uuid()) @db.Uuid
+  userId                       String   @unique @db.Uuid
+  dailyCheckInReminder         Boolean  @default(false)
+  weeklyReflection             Boolean  @default(false)
+  communityReplies             Boolean  @default(false)
+  timezone                     String   @default("UTC")
+  dailyReminderHourLocal       Int      @default(9)
+  weeklyReflectionDayLocal     Int      @default(1)
+  weeklyReflectionHourLocal    Int      @default(18)
+  communityReplyCooldownMinutes Int     @default(30)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+  user                         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([timezone])
+}
+
+model NotificationDispatchLog {
+  id             String                     @id @default(uuid()) @db.Uuid
+  userId         String                     @db.Uuid
+  type           NotificationType
+  status         NotificationDeliveryStatus @default(SENT)
+  channel        String                     @default("IN_APP")
+  scheduledAtUtc DateTime
+  dispatchedAtUtc DateTime                  @default(now())
+  dedupeKey      String?
+  payload        Json?
+  reason         String?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([dedupeKey])
+  @@index([userId, type, dispatchedAtUtc])
 }
 
 model UserHealthConnection {

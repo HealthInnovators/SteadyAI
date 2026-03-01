@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
-import { ChallengeStatus, ParticipationStatus, PostType } from '@prisma/client';
+import { ChallengeStatus, NotificationDeliveryStatus, NotificationType, ParticipationStatus, PostType } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { buildApp } from '../../src/app';
@@ -208,6 +208,303 @@ describe('API integration', () => {
     assert.equal(body.group.id, membership.groupId);
     assert.equal(body.challenge.id, membership.challengeId);
     assert.equal(body.author.id, user.id);
+  });
+
+  it('POST /api/community/posts/:postId/reactions upserts reaction and updates count', async () => {
+    const user = await createUser('reaction-user');
+    const membership = await createActiveChallengeContext(user.id);
+
+    const post = await getPrismaClient().post.create({
+      data: {
+        authorId: user.id,
+        groupId: membership.groupId,
+        challengeId: membership.challengeId,
+        type: PostType.WIN,
+        content: 'Reaction target post'
+      },
+      select: { id: true }
+    });
+
+    const first = await app.inject({
+      method: 'POST',
+      url: `/api/community/posts/${post.id}/reactions`,
+      headers: {
+        'x-test-user-id': user.id
+      },
+      payload: {
+        type: 'LIKE'
+      }
+    });
+
+    assert.equal(first.statusCode, 200);
+    const firstBody = first.json();
+    assert.equal(firstBody.reactions.length, 1);
+    assert.equal(firstBody.reactions[0].type, 'LIKE');
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `/api/community/posts/${post.id}/reactions`,
+      headers: {
+        'x-test-user-id': user.id
+      },
+      payload: {
+        type: 'SUPPORT'
+      }
+    });
+
+    assert.equal(second.statusCode, 200);
+    const secondBody = second.json();
+    assert.equal(secondBody.reactions.length, 1);
+    assert.equal(secondBody.reactions[0].type, 'SUPPORT');
+  });
+
+  it('POST /api/notifications/daily-check-in/schedule stores settings and logs SENT when dispatchNow=true', async () => {
+    const prisma = getPrismaClient();
+    const user = await createUser('notify-daily-sent');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/daily-check-in/schedule',
+      headers: {
+        'x-test-user-id': user.id
+      },
+      payload: {
+        optIn: {
+          dailyCheckInReminder: true,
+          weeklyReflection: false,
+          communityReplies: true
+        },
+        schedule: {
+          timezone: 'UTC',
+          dailyReminderHourLocal: 9,
+          weeklyReflectionDayLocal: 1,
+          weeklyReflectionHourLocal: 18
+        },
+        dispatchNow: true
+      }
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.equal(body.scheduled, true);
+    assert.ok(body.job);
+    assert.ok(body.dispatched);
+    assert.equal(body.dispatched.delivered, true);
+
+    const settings = await prisma.userNotificationSettings.findUnique({
+      where: { userId: user.id }
+    });
+    assert.ok(settings);
+    assert.equal(settings?.dailyCheckInReminder, true);
+    assert.equal(settings?.communityReplies, true);
+    assert.equal(settings?.timezone, 'UTC');
+
+    const sentLog = await prisma.notificationDispatchLog.findFirst({
+      where: {
+        userId: user.id,
+        type: NotificationType.DAILY_CHECK_IN_REMINDER,
+        status: NotificationDeliveryStatus.SENT
+      }
+    });
+    assert.ok(sentLog);
+  });
+
+  it('POST /api/notifications/replies/event logs SKIPPED when target user is opted out', async () => {
+    const prisma = getPrismaClient();
+    const actor = await createUser('notify-reply-actor-optout');
+    const target = await createUser('notify-reply-target-optout');
+
+    await prisma.userNotificationSettings.create({
+      data: {
+        userId: target.id,
+        communityReplies: false,
+        timezone: 'UTC'
+      }
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/replies/event',
+      headers: {
+        'x-test-user-id': actor.id
+      },
+      payload: {
+        targetUserId: target.id,
+        replyCount: 1
+      }
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.equal(body.notified, false);
+    assert.match(String(body.reason), /not opted in/i);
+
+    const skippedLog = await prisma.notificationDispatchLog.findFirst({
+      where: {
+        userId: target.id,
+        type: NotificationType.COMMUNITY_REPLIES,
+        status: NotificationDeliveryStatus.SKIPPED
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    assert.ok(skippedLog);
+    assert.match(String(skippedLog?.reason), /not opted in/i);
+  });
+
+  it('POST /api/notifications/replies/event logs SKIPPED on cooldown', async () => {
+    const prisma = getPrismaClient();
+    const actor = await createUser('notify-reply-actor-cooldown');
+    const target = await createUser('notify-reply-target-cooldown');
+
+    await prisma.userNotificationSettings.create({
+      data: {
+        userId: target.id,
+        communityReplies: true,
+        timezone: 'UTC',
+        communityReplyCooldownMinutes: 30
+      }
+    });
+
+    await prisma.notificationDispatchLog.create({
+      data: {
+        userId: target.id,
+        type: NotificationType.COMMUNITY_REPLIES,
+        status: NotificationDeliveryStatus.SENT,
+        channel: 'IN_APP',
+        scheduledAtUtc: new Date(Date.now() - 2 * 60 * 1000),
+        dispatchedAtUtc: new Date(Date.now() - 2 * 60 * 1000),
+        dedupeKey: `seed-cooldown-${Date.now()}`
+      }
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/replies/event',
+      headers: {
+        'x-test-user-id': actor.id
+      },
+      payload: {
+        targetUserId: target.id,
+        replyCount: 2
+      }
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.equal(body.notified, false);
+    assert.match(String(body.reason), /cooldown/i);
+
+    const cooldownLog = await prisma.notificationDispatchLog.findFirst({
+      where: {
+        userId: target.id,
+        type: NotificationType.COMMUNITY_REPLIES,
+        status: NotificationDeliveryStatus.SKIPPED,
+        reason: { contains: 'Cooldown' }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    assert.ok(cooldownLog);
+  });
+
+  it('POST /api/notifications/replies/event logs SKIPPED on hourly cap and SENT when allowed', async () => {
+    const prisma = getPrismaClient();
+    const actor = await createUser('notify-reply-actor-limit');
+    const target = await createUser('notify-reply-target-limit');
+
+    await prisma.userNotificationSettings.create({
+      data: {
+        userId: target.id,
+        communityReplies: true,
+        timezone: 'UTC',
+        communityReplyCooldownMinutes: 1
+      }
+    });
+
+    const now = Date.now();
+    await prisma.notificationDispatchLog.createMany({
+      data: [
+        {
+          userId: target.id,
+          type: NotificationType.COMMUNITY_REPLIES,
+          status: NotificationDeliveryStatus.SENT,
+          channel: 'IN_APP',
+          scheduledAtUtc: new Date(now - 50 * 60 * 1000),
+          dispatchedAtUtc: new Date(now - 50 * 60 * 1000),
+          dedupeKey: `seed-hourly-1-${now}`
+        },
+        {
+          userId: target.id,
+          type: NotificationType.COMMUNITY_REPLIES,
+          status: NotificationDeliveryStatus.SENT,
+          channel: 'IN_APP',
+          scheduledAtUtc: new Date(now - 40 * 60 * 1000),
+          dispatchedAtUtc: new Date(now - 40 * 60 * 1000),
+          dedupeKey: `seed-hourly-2-${now}`
+        },
+        {
+          userId: target.id,
+          type: NotificationType.COMMUNITY_REPLIES,
+          status: NotificationDeliveryStatus.SENT,
+          channel: 'IN_APP',
+          scheduledAtUtc: new Date(now - 30 * 60 * 1000),
+          dispatchedAtUtc: new Date(now - 30 * 60 * 1000),
+          dedupeKey: `seed-hourly-3-${now}`
+        }
+      ]
+    });
+
+    const limited = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/replies/event',
+      headers: {
+        'x-test-user-id': actor.id
+      },
+      payload: {
+        targetUserId: target.id,
+        replyCount: 1
+      }
+    });
+
+    assert.equal(limited.statusCode, 200);
+    const limitedBody = limited.json();
+    assert.equal(limitedBody.notified, false);
+    assert.match(String(limitedBody.reason), /hourly/i);
+
+    await prisma.notificationDispatchLog.deleteMany({
+      where: {
+        userId: target.id,
+        type: NotificationType.COMMUNITY_REPLIES,
+        status: NotificationDeliveryStatus.SENT
+      }
+    });
+
+    const allowed = await app.inject({
+      method: 'POST',
+      url: '/api/notifications/replies/event',
+      headers: {
+        'x-test-user-id': actor.id
+      },
+      payload: {
+        targetUserId: target.id,
+        replyCount: 3
+      }
+    });
+
+    assert.equal(allowed.statusCode, 200);
+    const allowedBody = allowed.json();
+    assert.equal(allowedBody.notified, true);
+    assert.ok(allowedBody.job);
+    assert.ok(allowedBody.dispatch);
+
+    const sentLog = await prisma.notificationDispatchLog.findFirst({
+      where: {
+        userId: target.id,
+        type: NotificationType.COMMUNITY_REPLIES,
+        status: NotificationDeliveryStatus.SENT
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    assert.ok(sentLog);
   });
 });
 

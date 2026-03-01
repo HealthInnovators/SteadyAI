@@ -42,7 +42,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const { token, loginAsDevUser } = useAuth();
 
   useEffect(() => {
     try {
@@ -124,6 +124,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       const response = await api.post<OnboardingResponse, OnboardingPayload>('/api/onboarding', {
         body: payload
       });
+      const resolvedUserId =
+        typeof response.userId === 'string'
+          ? response.userId
+          : typeof response.id === 'string'
+            ? response.id
+            : null;
+
+      if (!token && resolvedUserId) {
+        loginAsDevUser(resolvedUserId);
+      }
       window.localStorage.removeItem(STORAGE_KEY);
       return response;
     } catch (submissionError) {
@@ -133,7 +143,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [draft, isSubmitting, token]);
+  }, [draft, isSubmitting, loginAsDevUser, token]);
 
   const value = useMemo<OnboardingContextValue>(
     () => ({

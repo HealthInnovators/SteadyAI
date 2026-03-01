@@ -12,12 +12,15 @@ import {
 } from 'react';
 
 const AUTH_STORAGE_KEY = 'steadyai.jwt';
+const DEV_USER_ID_STORAGE_KEY = 'steadyai.dev-user-id';
 
 interface AuthContextValue {
   token: string | null;
+  userId: string | null;
   isAuthenticated: boolean;
   isHydrated: boolean;
   login: (jwt: string) => void;
+  loginAsDevUser: (userId: string) => void;
   setToken: (jwt: string | null) => void;
   logout: (options?: { redirectTo?: string }) => void;
 }
@@ -26,6 +29,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null);
+  const [userId, setUserIdState] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -33,7 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
+      const storedUserId = window.localStorage.getItem(DEV_USER_ID_STORAGE_KEY);
       setTokenState(stored && stored.trim() ? stored : null);
+      setUserIdState(storedUserId && storedUserId.trim() ? storedUserId : null);
     } finally {
       setIsHydrated(true);
     }
@@ -41,11 +47,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== AUTH_STORAGE_KEY) {
-        return;
+      if (event.key === AUTH_STORAGE_KEY) {
+        const next = event.newValue && event.newValue.trim() ? event.newValue : null;
+        setTokenState(next);
       }
-      const next = event.newValue && event.newValue.trim() ? event.newValue : null;
-      setTokenState(next);
+
+      if (event.key === DEV_USER_ID_STORAGE_KEY) {
+        const nextUserId = event.newValue && event.newValue.trim() ? event.newValue : null;
+        setUserIdState(nextUserId);
+      }
     };
 
     window.addEventListener('storage', onStorage);
@@ -63,6 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokenState(null);
   }, []);
 
+  const persistDevUserId = useCallback((nextUserId: string | null) => {
+    if (nextUserId && nextUserId.trim()) {
+      window.localStorage.setItem(DEV_USER_ID_STORAGE_KEY, nextUserId.trim());
+      setUserIdState(nextUserId.trim());
+      return;
+    }
+
+    window.localStorage.removeItem(DEV_USER_ID_STORAGE_KEY);
+    setUserIdState(null);
+  }, []);
+
   const login = useCallback(
     (jwt: string) => {
       persistToken(jwt);
@@ -70,27 +91,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistToken]
   );
 
+  const loginAsDevUser = useCallback(
+    (nextUserId: string) => {
+      persistDevUserId(nextUserId);
+    },
+    [persistDevUserId]
+  );
+
   const logout = useCallback(
     (options?: { redirectTo?: string }) => {
       persistToken(null);
+      persistDevUserId(null);
       const target = options?.redirectTo ?? '/';
       if (pathname !== target) {
         router.replace(target);
       }
     },
-    [pathname, persistToken, router]
+    [pathname, persistDevUserId, persistToken, router]
   );
 
   const value = useMemo<AuthContextValue>(
     () => ({
       token,
+      userId,
       isHydrated,
-      isAuthenticated: Boolean(token),
+      isAuthenticated: Boolean(token || userId),
       login,
+      loginAsDevUser,
       setToken: persistToken,
       logout
     }),
-    [isHydrated, login, logout, persistToken, token]
+    [isHydrated, login, loginAsDevUser, logout, persistToken, token, userId]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

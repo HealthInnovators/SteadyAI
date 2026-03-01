@@ -158,7 +158,12 @@ async function assignCommunityAndChallenge(userId: string, input: CompleteOnboar
     }));
 
   await prisma.challengeParticipation.upsert({
-    where: { userId },
+    where: {
+      challengeId_userId: {
+        challengeId: challenge.id,
+        userId
+      }
+    },
     create: {
       challengeId: challenge.id,
       userId,

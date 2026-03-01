@@ -86,7 +86,12 @@ export async function enrollUserInChallenge(input: EnrollUserInChallengeInput) {
   const challenge = await resolveOrCreateDefaultActiveChallenge(user.id);
 
   const participation = await prisma.challengeParticipation.upsert({
-    where: { userId: user.id },
+    where: {
+      challengeId_userId: {
+        challengeId: challenge.id,
+        userId: user.id
+      }
+    },
     create: {
       challengeId: challenge.id,
       userId: user.id,

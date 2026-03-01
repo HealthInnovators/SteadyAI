@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { requestAgentReply } from './api';
 import { AGENT_DISCLAIMER, AGENTS } from './data';
 import { buildAgentReply } from './engine';
 import type { AgentType, ChatMessage } from './types';
@@ -8,6 +9,7 @@ import type { AgentType, ChatMessage } from './types';
 export function AgentInteractionPanel() {
   const [selectedAgent, setSelectedAgent] = useState<AgentType>('MEAL_PLANNER');
   const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const [threads, setThreads] = useState<Record<AgentType, ChatMessage[]>>(() => ({
     MEAL_PLANNER: [welcomeMessage('Meal Planner')],
     HABIT_COACH: [welcomeMessage('Habit Coach')],
@@ -90,29 +92,66 @@ export function AgentInteractionPanel() {
           <button
             type="button"
             className="h-fit rounded-md bg-black px-4 py-2 text-sm text-white disabled:bg-gray-400"
-            disabled={!input.trim()}
-            onClick={() => {
+            disabled={!input.trim() || isSending}
+            onClick={async () => {
               const prompt = input.trim();
               if (!prompt) {
                 return;
               }
 
+              const agentAtSend = selectedAgent;
               const userMessage: ChatMessage = {
                 id: `user-${Date.now()}`,
                 role: 'user',
                 text: prompt,
                 createdAt: new Date().toISOString()
               };
-              const agentMessage = buildAgentReply(selectedAgent, prompt);
-
+              const pendingId = `pending-${Date.now()}`;
+              const pendingMessage: ChatMessage = {
+                id: pendingId,
+                role: 'system',
+                text: 'Thinking...',
+                createdAt: new Date().toISOString()
+              };
+              setIsSending(true);
               setThreads((prev) => ({
                 ...prev,
-                [selectedAgent]: [...(prev[selectedAgent] || []), userMessage, agentMessage]
+                [agentAtSend]: [...(prev[agentAtSend] || []), userMessage, pendingMessage]
               }));
               setInput('');
+
+              try {
+                const reply = await requestAgentReply(agentAtSend, prompt);
+                const agentMessage: ChatMessage = {
+                  id: `agent-${Date.now()}`,
+                  role: 'agent',
+                  text: reply.text,
+                  reasoning: reply.reasoning,
+                  createdAt: new Date().toISOString()
+                };
+
+                setThreads((prev) => ({
+                  ...prev,
+                  [agentAtSend]: (prev[agentAtSend] || []).filter((message) => message.id !== pendingId).concat(agentMessage)
+                }));
+              } catch {
+                const fallback = buildAgentReply(agentAtSend, prompt);
+                const fallbackMessage: ChatMessage = {
+                  ...fallback,
+                  text: `Live response unavailable right now. ${fallback.text}`
+                };
+                setThreads((prev) => ({
+                  ...prev,
+                  [agentAtSend]: (prev[agentAtSend] || [])
+                    .filter((message) => message.id !== pendingId)
+                    .concat(fallbackMessage)
+                }));
+              } finally {
+                setIsSending(false);
+              }
             }}
           >
-            Send
+            {isSending ? 'Thinking...' : 'Send'}
           </button>
         </div>
       </section>

@@ -1,5 +1,7 @@
+import { NotificationDeliveryStatus, NotificationType, Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
+import { getPrismaClient } from '../db/prisma';
 import { authenticateRequest } from '../middleware/auth';
 import {
   type NotificationOptInSettings,
@@ -18,13 +20,12 @@ interface DailyReminderBody {
 interface ReplyEventBody {
   actorUserId?: string;
   targetUserId: string;
-  targetTimezone?: string;
-  targetOptIn: boolean;
   replyCount?: number;
   occurredAtUtc?: string;
 }
 
 export async function notificationRoutes(fastify: FastifyInstance): Promise<void> {
+  const prisma = getPrismaClient();
   const scheduler = new NotificationSchedulerService();
   const replyListener = new ReplyNotificationListenerService();
 
@@ -49,6 +50,29 @@ export async function notificationRoutes(fastify: FastifyInstance): Promise<void
       }
 
       try {
+        await prisma.userNotificationSettings.upsert({
+          where: { userId: finalUserId },
+          create: {
+            userId: finalUserId,
+            dailyCheckInReminder: body.optIn.dailyCheckInReminder,
+            weeklyReflection: body.optIn.weeklyReflection,
+            communityReplies: body.optIn.communityReplies,
+            timezone: body.schedule.timezone,
+            dailyReminderHourLocal: body.schedule.dailyReminderHourLocal,
+            weeklyReflectionDayLocal: body.schedule.weeklyReflectionDayLocal,
+            weeklyReflectionHourLocal: body.schedule.weeklyReflectionHourLocal
+          },
+          update: {
+            dailyCheckInReminder: body.optIn.dailyCheckInReminder,
+            weeklyReflection: body.optIn.weeklyReflection,
+            communityReplies: body.optIn.communityReplies,
+            timezone: body.schedule.timezone,
+            dailyReminderHourLocal: body.schedule.dailyReminderHourLocal,
+            weeklyReflectionDayLocal: body.schedule.weeklyReflectionDayLocal,
+            weeklyReflectionHourLocal: body.schedule.weeklyReflectionHourLocal
+          }
+        });
+
         const profile = {
           userId: finalUserId,
           optIn: body.optIn,
@@ -57,6 +81,17 @@ export async function notificationRoutes(fastify: FastifyInstance): Promise<void
 
         const job = scheduler.buildDailyCheckInReminderJob(profile);
         if (!job) {
+          await prisma.notificationDispatchLog.create({
+            data: {
+              userId: finalUserId,
+              type: NotificationType.DAILY_CHECK_IN_REMINDER,
+              status: NotificationDeliveryStatus.SKIPPED,
+              channel: 'IN_APP',
+              scheduledAtUtc: new Date(),
+              dispatchedAtUtc: new Date(),
+              reason: 'User is not opted in to daily check-in reminders.'
+            }
+          });
           return reply.status(200).send({
             scheduled: false,
             reason: 'User is not opted in to daily check-in reminders.'
@@ -65,10 +100,26 @@ export async function notificationRoutes(fastify: FastifyInstance): Promise<void
 
         if (body.dispatchNow) {
           const dispatched = await scheduler.dispatchJobs([job]);
+          const dispatch = dispatched[0] ?? null;
+
+          await prisma.notificationDispatchLog.create({
+            data: {
+              userId: finalUserId,
+              type: NotificationType.DAILY_CHECK_IN_REMINDER,
+              status: dispatch?.delivered ? NotificationDeliveryStatus.SENT : NotificationDeliveryStatus.FAILED,
+              channel: 'IN_APP',
+              scheduledAtUtc: new Date(job.scheduledAtUtc),
+              dispatchedAtUtc: dispatch?.dispatchedAtUtc ? new Date(dispatch.dispatchedAtUtc) : new Date(),
+              dedupeKey: `${job.jobId}:${Date.now()}`,
+              payload: job.payload as Prisma.InputJsonValue,
+              reason: dispatch?.delivered ? null : dispatch?.message ?? 'Failed to dispatch daily reminder'
+            }
+          });
+
           return reply.status(200).send({
             scheduled: true,
             job,
-            dispatched: dispatched[0] ?? null
+            dispatched: dispatch
           });
         }
 
@@ -102,10 +153,6 @@ export async function notificationRoutes(fastify: FastifyInstance): Promise<void
         return reply.status(400).send({ error: 'targetUserId is required' });
       }
 
-      if (typeof body.targetOptIn !== 'boolean') {
-        return reply.status(400).send({ error: 'targetOptIn boolean is required' });
-      }
-
       if (actorUserId !== authenticatedUserId) {
         return reply.status(403).send({ error: 'actorUserId does not match authenticated user' });
       }
@@ -114,8 +161,6 @@ export async function notificationRoutes(fastify: FastifyInstance): Promise<void
         const result = await replyListener.onReplyCreated({
           actorUserId,
           targetUserId: body.targetUserId,
-          targetTimezone: body.targetTimezone,
-          targetOptIn: body.targetOptIn,
           replyCount: body.replyCount,
           occurredAtUtc: body.occurredAtUtc
         });

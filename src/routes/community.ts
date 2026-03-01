@@ -1,10 +1,10 @@
-import { PostType } from '@prisma/client';
+import { PostType, ReactionType } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { authenticateRequest } from '../middleware/auth';
 import { generateCommunityDailySummary } from '../services/community-daily-summary.service';
 import { getCommunityFeed } from '../services/community-feed.service';
-import { ALLOWED_POST_TYPES, createCommunityPost } from '../services/community-post.service';
+import { ALLOWED_POST_TYPES, ALLOWED_REACTION_TYPES, createCommunityPost, createCommunityReaction } from '../services/community-post.service';
 
 interface CommunityFeedQuery {
   limit?: number;
@@ -15,6 +15,10 @@ interface CommunityFeedQuery {
 interface CreateCommunityPostBody {
   type: PostType;
   content: string;
+}
+
+interface CreateReactionBody {
+  type?: ReactionType;
 }
 
 interface CommunityDailySummaryBody {
@@ -83,6 +87,55 @@ export async function communityRoutes(fastify: FastifyInstance): Promise<void> {
 
         if (message.includes('active member')) {
           return reply.status(403).send({ error: message });
+        }
+
+        request.log.error(error);
+        return reply.status(400).send({ error: message });
+      }
+    }
+  );
+
+  fastify.post<{ Params: { postId: string }; Body: CreateReactionBody }>(
+    '/community/posts/:postId/reactions',
+    { preHandler: authenticateRequest },
+    async (request, reply) => {
+      const userId = request.userId;
+
+      if (!userId) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const postId = request.params.postId;
+      if (!postId) {
+        return reply.status(400).send({ error: 'postId is required' });
+      }
+
+      const type = request.body?.type ?? ReactionType.LIKE;
+      if (!ALLOWED_REACTION_TYPES.has(type)) {
+        return reply.status(400).send({ error: 'type must be one of LIKE, CELEBRATE, SUPPORT' });
+      }
+
+      try {
+        const post = await createCommunityReaction({
+          userId,
+          postId,
+          type
+        });
+
+        return reply.status(200).send(post);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to create reaction';
+
+        if (message.includes('active member')) {
+          return reply.status(403).send({ error: message });
+        }
+
+        if (message.includes('outside your community group')) {
+          return reply.status(403).send({ error: message });
+        }
+
+        if (message.includes('Post not found')) {
+          return reply.status(404).send({ error: message });
         }
 
         request.log.error(error);
