@@ -57,7 +57,7 @@ export default function HomePage() {
             Your personal wellness companion powered by AI. Start exploring our features to improve your health and wellness.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <Link href="/agents" className="block p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg hover:shadow-lg transition">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">🤖 Agents</h3>
               <p className="text-gray-600">AI-powered health coaches and guides</p>
@@ -76,6 +76,11 @@ export default function HomePage() {
             <Link href="/community" className="block p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg hover:shadow-lg transition">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">👥 Community</h3>
               <p className="text-gray-600">Connect with others on their wellness journey</p>
+            </Link>
+
+            <Link href="/reports" className="block p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg hover:shadow-lg transition">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">📊 Reports</h3>
+              <p className="text-gray-600">Track adherence, workouts, nutrition, and community trends</p>
             </Link>
           </div>
         </div>

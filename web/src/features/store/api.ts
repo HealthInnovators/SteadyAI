@@ -1,5 +1,8 @@
 import type { ApiClient } from '@/lib/api';
 import type {
+  CoachFeedbackListResponse,
+  CreateCoachFeedbackRequestInput,
+  CreateCoachFeedbackRequestResponse,
   McpUserSummary,
   OptionalProductSuggestionResponse,
   StoreProduct,
@@ -17,5 +20,18 @@ export async function getOptionalProductSuggestions(
 ): Promise<OptionalProductSuggestionResponse> {
   return api.post<OptionalProductSuggestionResponse, McpUserSummary>('/api/store/recommendations', {
     body: summary
+  });
+}
+
+export function listMyCoachFeedbackRequests(api: ApiClient): Promise<CoachFeedbackListResponse> {
+  return api.get<CoachFeedbackListResponse>('/api/store/coach-feedback/my');
+}
+
+export function createCoachFeedbackRequest(
+  api: ApiClient,
+  input: CreateCoachFeedbackRequestInput
+): Promise<CreateCoachFeedbackRequestResponse> {
+  return api.post<CreateCoachFeedbackRequestResponse, CreateCoachFeedbackRequestInput>('/api/store/coach-feedback', {
+    body: input
   });
 }

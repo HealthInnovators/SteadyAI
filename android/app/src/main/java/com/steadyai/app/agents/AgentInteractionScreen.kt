@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -61,14 +62,33 @@ class AgentInteractionViewModel @Inject constructor() : ViewModel() {
             return
         }
 
-        val prompt = state.input.trim()
-        if (prompt.isEmpty()) {
+        val prompt = state.input
+        if (prompt.trim().isEmpty()) {
             _uiState.update { it.copy(error = "Type a message before sending.") }
             return
         }
 
-        val userMessage = AgentMessage(role = MessageRole.USER, text = prompt)
+        sendPrompt(prompt)
+    }
 
+    fun sendStarterPrompt(prompt: String) {
+        if (prompt.trim().isEmpty()) {
+            return
+        }
+        sendPrompt(prompt)
+    }
+
+    private fun sendPrompt(promptText: String) {
+        val state = uiState.value
+        if (state.isSending) {
+            return
+        }
+        val prompt = promptText.trim()
+        if (prompt.isEmpty()) {
+            return
+        }
+        val userMessage = AgentMessage(role = MessageRole.USER, text = prompt)
+        val agentAtSend = state.selectedAgent
         _uiState.update {
             it.copy(
                 input = "",
@@ -76,7 +96,7 @@ class AgentInteractionViewModel @Inject constructor() : ViewModel() {
                 error = null,
                 messagesByAgent = appendMessage(
                     messagesByAgent = it.messagesByAgent,
-                    agentType = it.selectedAgent,
+                    agentType = agentAtSend,
                     message = userMessage
                 )
             )
@@ -84,13 +104,13 @@ class AgentInteractionViewModel @Inject constructor() : ViewModel() {
 
         viewModelScope.launch {
             delay(250)
-            val response = agentResponseFor(state.selectedAgent, prompt)
+            val response = agentResponseFor(agentAtSend, prompt)
             _uiState.update {
                 it.copy(
                     isSending = false,
                     messagesByAgent = appendMessage(
                         messagesByAgent = it.messagesByAgent,
-                        agentType = it.selectedAgent,
+                        agentType = agentAtSend,
                         message = response
                     )
                 )
@@ -187,6 +207,11 @@ fun AgentInteractionScreen(viewModel: AgentInteractionViewModel = hiltViewModel(
                 onSelect = viewModel::selectAgent
             )
 
+            StarterPrompts(
+                prompts = starterPromptsFor(state.selectedAgent),
+                onPromptClick = viewModel::sendStarterPrompt
+            )
+
             ChatMessages(
                 messages = state.currentMessages,
                 modifier = Modifier.weight(1f)
@@ -210,6 +235,26 @@ fun AgentInteractionScreen(viewModel: AgentInteractionViewModel = hiltViewModel(
     }
 }
 
+private fun starterPromptsFor(agentType: AgentType): List<String> {
+    return when (agentType) {
+        AgentType.MEAL_PLANNER -> listOf(
+            "Plan a simple 3-day high-protein meal plan with quick dinners.",
+            "Build a beginner-friendly 3-day meal plan and grocery list.",
+            "Suggest post-workout dinner ideas for evening training days."
+        )
+        AgentType.HABIT_COACH -> listOf(
+            "I missed check-ins this week. Give me a simple restart plan.",
+            "Help me set a 10-minute daily habit for the next 7 days.",
+            "Give me one habit adjustment I can sustain this week."
+        )
+        AgentType.COMMUNITY_GUIDE -> listOf(
+            "Suggest one low-pressure post idea I can share today.",
+            "Draft a supportive CHECK_IN post about a small win.",
+            "Give me one peer outreach message I can send today."
+        )
+    }
+}
+
 @Composable
 private fun AgentSelector(
     selected: AgentType,
@@ -225,6 +270,25 @@ private fun AgentSelector(
                 onClick = { onSelect(type) },
                 label = { Text(type.label) }
             )
+        }
+    }
+}
+
+@Composable
+private fun StarterPrompts(
+    prompts: List<String>,
+    onPromptClick: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Not sure what to ask? Try one:", style = MaterialTheme.typography.labelLarge)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(prompts, key = { it }) { prompt ->
+                FilterChip(
+                    selected = false,
+                    onClick = { onPromptClick(prompt) },
+                    label = { Text(prompt) }
+                )
+            }
         }
     }
 }

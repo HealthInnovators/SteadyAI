@@ -1,5 +1,9 @@
 package com.steadyai.app.health
 
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.StepsRecord
 import java.time.Instant
 
 /**
@@ -18,6 +22,10 @@ data class AggregatedHealthSummary(
 )
 
 interface HealthConnectSummaryService {
+    fun requiredReadPermissions(): Set<String>
+
+    suspend fun hasRequiredPermissions(): Result<Boolean>
+
     suspend fun fetchAggregatedMetrics(
         windowStart: Instant,
         windowEnd: Instant
@@ -26,3 +34,10 @@ interface HealthConnectSummaryService {
     suspend fun storeAggregatedSummary(summary: AggregatedHealthSummary): Result<Unit>
 }
 
+fun defaultHealthConnectReadPermissions(): Set<String> {
+    return setOf(
+        HealthPermission.getReadPermission(StepsRecord::class),
+        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
+        HealthPermission.getReadPermission(SleepSessionRecord::class)
+    )
+}

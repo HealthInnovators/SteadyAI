@@ -2,6 +2,8 @@ export interface StoreProduct {
   id: string;
   name: string;
   description: string;
+  priceCents?: number;
+  currency?: string;
   whoItsFor: string;
   whoItsNotFor: string;
 }
@@ -65,4 +67,40 @@ export interface OptionalProductSuggestionResponse {
   presentation: 'passive_optional';
   suggestions: OptionalProductSuggestion[];
   rationale: string;
+}
+
+export interface CoachFeedbackRequestItem {
+  id: string;
+  topic: string;
+  context: string | null;
+  preferredOutcome: string | null;
+  status: 'REQUESTED' | 'IN_REVIEW' | 'RESPONDED' | 'CLOSED';
+  coachReply: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  product: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CoachFeedbackListResponse {
+  items: CoachFeedbackRequestItem[];
+}
+
+export interface CreateCoachFeedbackRequestInput {
+  productId: string;
+  topic: string;
+  context?: string;
+  preferredOutcome?: string;
+}
+
+export interface CreateCoachFeedbackRequestResponse {
+  message: string;
+  request: CoachFeedbackRequestItem;
+  purchase: {
+    id: string;
+    totalCents: number;
+    purchasedAt: string;
+  };
 }

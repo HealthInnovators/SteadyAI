@@ -22,6 +22,7 @@ import com.steadyai.app.agents.AgentInteractionScreen
 import com.steadyai.app.apikeys.ApiKeyManagementScreen
 import com.steadyai.app.checkin.CheckInScreen
 import com.steadyai.app.community.CommunityScreen
+import com.steadyai.app.health.HealthConnectRoute
 import com.steadyai.app.store.StoreScreen
 import com.steadyai.app.ui.HomeScreen
 
@@ -34,6 +35,7 @@ enum class MainTab(
     AGENTS("tab_agents", "Agents"),
     COMMUNITY("tab_community", "Community"),
     CHECK_IN("tab_check_in", "Check-in"),
+    HEALTH("tab_health", "Health"),
     STORE("tab_store", "Store")
 }
 
@@ -85,6 +87,9 @@ fun MainShellScreen() {
             }
             composable(MainTab.CHECK_IN.route) {
                 CheckInScreen()
+            }
+            composable(MainTab.HEALTH.route) {
+                HealthConnectRoute()
             }
             composable(MainTab.STORE.route) {
                 StoreScreen()

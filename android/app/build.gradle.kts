@@ -66,6 +66,7 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.security.crypto)
     implementation(libs.androidx.health.connect.client)
+    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.google.play.services.auth)
     implementation(libs.retrofit.core)
 

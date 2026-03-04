@@ -4,9 +4,41 @@ export interface StoreProductView {
   id: string;
   name: string;
   description: string;
+  priceCents?: number;
+  currency?: string;
   whoItsFor: string;
   whoItsNotFor: string;
 }
+
+const DUMMY_STORE_PRODUCTS: StoreProductView[] = [
+  {
+    id: 'demo-meal-quickstart',
+    name: '7-Day Meal Quickstart',
+    description: 'Simple meal structure templates with grocery shortcuts for busy weekdays.',
+    priceCents: 1900,
+    currency: 'USD',
+    whoItsFor: 'People who want low-friction meal planning with predictable shopping.',
+    whoItsNotFor: 'Not for emergency, crisis, or medical treatment needs; this is educational support only.'
+  },
+  {
+    id: 'demo-habit-reset',
+    name: 'Habit Reset Playbook',
+    description: 'Step-by-step plan to recover after missed check-ins and rebuild consistency.',
+    priceCents: 1500,
+    currency: 'USD',
+    whoItsFor: 'People restarting routines after lapses and wanting practical next actions.',
+    whoItsNotFor: 'Not for emergency, crisis, or medical treatment needs; this is educational support only.'
+  },
+  {
+    id: 'demo-community-prompts',
+    name: 'Community Starter Prompts',
+    description: 'Prompt pack to write supportive posts, thoughtful questions, and check-in updates.',
+    priceCents: 1200,
+    currency: 'USD',
+    whoItsFor: 'People who want easier ways to participate in community conversations.',
+    whoItsNotFor: 'Not for emergency, crisis, or medical treatment needs; this is educational support only.'
+  }
+];
 
 const URGENCY_PATTERNS: RegExp[] = [
   /\blimited time\b/gi,
@@ -60,14 +92,16 @@ export async function getStoreProducts(): Promise<StoreProductView[]> {
     select: {
       id: true,
       name: true,
-      description: true
+      description: true,
+      priceCents: true,
+      currency: true
     },
     orderBy: {
       createdAt: 'desc'
     }
   });
 
-  return products.map((product) => {
+  const mapped = products.map((product) => {
     const name = normalizeText(product.name, 'Unnamed product');
     const description = normalizeText(
       product.description,
@@ -78,8 +112,16 @@ export async function getStoreProducts(): Promise<StoreProductView[]> {
       id: product.id,
       name,
       description,
+      priceCents: product.priceCents,
+      currency: product.currency,
       whoItsFor: buildWhoItsFor(name, description),
       whoItsNotFor: buildWhoItsNotFor()
     };
   });
+
+  if (mapped.length === 0) {
+    return DUMMY_STORE_PRODUCTS;
+  }
+
+  return mapped;
 }

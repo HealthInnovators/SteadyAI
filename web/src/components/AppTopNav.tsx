@@ -10,6 +10,7 @@ const NAV_ITEMS: Array<{ href: string; label: string }> = [
   { href: '/check-in', label: 'Check-In' },
   { href: '/challenges', label: 'Challenges' },
   { href: '/community', label: 'Community' },
+  { href: '/reports', label: 'Reports' },
   { href: '/store', label: 'Store' },
   { href: '/settings/api-keys', label: 'Settings' }
 ];

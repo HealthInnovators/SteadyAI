@@ -10,6 +10,8 @@ import com.steadyai.core.model.community.CommunityPost
 import com.steadyai.core.model.community.CommunityReaction
 import com.steadyai.core.model.community.CreateCommunityPostRequest
 import com.steadyai.core.model.community.UpsertCommunityReactionRequest
+import com.steadyai.core.model.health.HealthConnectSummaryRequest
+import com.steadyai.core.model.health.HealthConnectSummaryResponse
 import com.steadyai.core.model.onboarding.OnboardingRequest
 import com.steadyai.core.model.onboarding.OnboardingResponse
 import com.steadyai.core.model.store.StoreProductsResponse
@@ -24,6 +26,11 @@ import retrofit2.http.Query
 interface ApiService {
     @GET("api/health")
     suspend fun healthCheck(): Response<ApiStatus>
+
+    @POST("api/health/connect/summary")
+    suspend fun submitHealthConnectSummary(
+        @Body request: HealthConnectSummaryRequest
+    ): Response<HealthConnectSummaryResponse>
 
     @POST("api/onboarding")
     suspend fun submitOnboarding(

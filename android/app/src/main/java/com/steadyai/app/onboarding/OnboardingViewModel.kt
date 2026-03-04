@@ -2,6 +2,7 @@ package com.steadyai.app.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.steadyai.app.session.SessionManager
 import com.steadyai.core.model.onboarding.OnboardingRequest
 import com.steadyai.core.model.onboarding.OnboardingResponse
 import com.steadyai.core.network.api.ApiService
@@ -39,7 +40,8 @@ data class OnboardingUiState(
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val apiService: ApiService,
-    private val apiClient: ApiClient
+    private val apiClient: ApiClient,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
@@ -108,6 +110,7 @@ class OnboardingViewModel @Inject constructor(
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
             when (val result = apiClient.execute { apiService.submitOnboarding(request) }) {
                 is ApiResult.Success -> {
+                    sessionManager.setCurrentUserId(result.data.id)
                     _uiState.update {
                         it.copy(
                             isSubmitting = false,

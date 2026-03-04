@@ -2,6 +2,7 @@ import { buildMcpUserSummary, type BuildMcpUserSummaryInput } from '../mcp/userS
 
 export interface GenerateMcpUserSummaryInput {
   profile: BuildMcpUserSummaryInput['profile'];
+  challengeActivity?: BuildMcpUserSummaryInput['challengeActivity'];
   communityEngagement?: BuildMcpUserSummaryInput['communityEngagement'];
   purchaseHistory?: BuildMcpUserSummaryInput['purchaseHistory'];
 }
@@ -27,6 +28,7 @@ export function generateMcpUserSummary(input: GenerateMcpUserSummaryInput) {
 
   return buildMcpUserSummary({
     profile: input.profile,
+    challengeActivity: input.challengeActivity,
     communityEngagement: input.communityEngagement,
     purchaseHistory: input.purchaseHistory
   });

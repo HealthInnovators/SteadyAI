@@ -23,6 +23,8 @@ interface AppEnv {
   GEMINI_MODEL: string;
   GROQ_API_KEY: string;
   GROQ_MODEL: string;
+  APPS_MCP_API_KEY: string;
+  PUBLIC_BASE_URL: string;
 }
 
 function getNodeEnv(value: string | undefined): NodeEnv {
@@ -67,5 +69,7 @@ export const env: AppEnv = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? '',
   GEMINI_MODEL: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
   GROQ_API_KEY: process.env.GROQ_API_KEY ?? '',
-  GROQ_MODEL: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile'
+  GROQ_MODEL: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+  APPS_MCP_API_KEY: process.env.APPS_MCP_API_KEY ?? '',
+  PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL ?? ''
 };

@@ -46,14 +46,24 @@ async function resolveUserFromSupabaseToken(token: string): Promise<SupabaseUser
   return user;
 }
 
+function applyDevHeaderAuth(request: FastifyRequest): boolean {
+  if (env.NODE_ENV === 'production') {
+    return false;
+  }
+
+  const testUserId = request.headers['x-test-user-id'];
+  if (typeof testUserId === 'string' && testUserId.trim()) {
+    request.userId = testUserId.trim();
+    request.userEmail = request.headers['x-test-user-email'] as string | undefined;
+    return true;
+  }
+
+  return false;
+}
+
 export async function authenticateRequest(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  if (env.NODE_ENV === 'test') {
-    const testUserId = request.headers['x-test-user-id'];
-    if (typeof testUserId === 'string' && testUserId.trim()) {
-      request.userId = testUserId.trim();
-      request.userEmail = request.headers['x-test-user-email'] as string | undefined;
-      return;
-    }
+  if (applyDevHeaderAuth(request)) {
+    return;
   }
 
   const token = getBearerToken(request);
@@ -73,13 +83,8 @@ export async function authenticateRequest(request: FastifyRequest, reply: Fastif
   }
 }
 export async function optionalAuthenticateRequest(request: FastifyRequest): Promise<void> {
-  if (env.NODE_ENV === 'test') {
-    const testUserId = request.headers['x-test-user-id'];
-    if (typeof testUserId === 'string' && testUserId.trim()) {
-      request.userId = testUserId.trim();
-      request.userEmail = request.headers['x-test-user-email'] as string | undefined;
-      return;
-    }
+  if (applyDevHeaderAuth(request)) {
+    return;
   }
 
   const token = getBearerToken(request);

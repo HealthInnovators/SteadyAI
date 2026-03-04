@@ -2,8 +2,14 @@ package com.steadyai.app.health
 
 import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +23,15 @@ class HealthConnectSummaryServiceStub @Inject constructor(
     private val appContext = context.applicationContext
     private val healthConnectClient by lazy { HealthConnectClient.getOrCreate(appContext) }
 
+    override fun requiredReadPermissions(): Set<String> = defaultHealthConnectReadPermissions()
+
+    override suspend fun hasRequiredPermissions(): Result<Boolean> = withContext(Dispatchers.IO) {
+        runCatching {
+            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            granted.containsAll(requiredReadPermissions())
+        }
+    }
+
     override suspend fun fetchAggregatedMetrics(
         windowStart: Instant,
         windowEnd: Instant
@@ -27,22 +42,24 @@ class HealthConnectSummaryServiceStub @Inject constructor(
                 throw IllegalStateException("Health Connect is not available on this device.")
             }
 
-            // Stub behavior:
-            // 1) Validate availability and initialize client.
-            // 2) Return aggregated-only payload.
-            // TODO: Replace placeholder values with aggregate() calls once permissions are wired.
-            @Suppress("UNUSED_VARIABLE")
-            val initializedClient = healthConnectClient
+            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            if (!granted.containsAll(requiredReadPermissions())) {
+                throw IllegalStateException("Health Connect permissions are not granted.")
+            }
+
+            val totalSteps = readAllSteps(windowStart = windowStart, windowEnd = windowEnd)
+            val activeMinutes = readAllActiveMinutes(windowStart = windowStart, windowEnd = windowEnd)
+            val sleepMinutes = readAllSleepMinutes(windowStart = windowStart, windowEnd = windowEnd)
 
             AggregatedHealthSummary(
                 windowStart = windowStart,
                 windowEnd = windowEnd,
                 generatedAt = Instant.now(),
-                totalSteps = 0L,
-                activeMinutes = 0L,
-                sleepMinutes = 0L,
+                totalSteps = totalSteps,
+                activeMinutes = activeMinutes,
+                sleepMinutes = sleepMinutes,
                 totalCaloriesKcal = null,
-                source = "health-connect-stub"
+                source = "health-connect"
             )
         }
     }
@@ -68,5 +85,68 @@ class HealthConnectSummaryServiceStub @Inject constructor(
                     .apply()
             }
         }
-}
 
+    private suspend fun readAllSteps(windowStart: Instant, windowEnd: Instant): Long {
+        var pageToken: String? = null
+        var total = 0L
+
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(windowStart, windowEnd),
+                    pageToken = pageToken
+                )
+            )
+
+            total += response.records.sumOf { it.count }
+            pageToken = response.pageToken
+        } while (pageToken != null)
+
+        return total
+    }
+
+    private suspend fun readAllActiveMinutes(windowStart: Instant, windowEnd: Instant): Long {
+        var pageToken: String? = null
+        var totalMinutes = 0L
+
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = ExerciseSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(windowStart, windowEnd),
+                    pageToken = pageToken
+                )
+            )
+
+            totalMinutes += response.records.sumOf { session ->
+                ChronoUnit.MINUTES.between(session.startTime, session.endTime).coerceAtLeast(0)
+            }
+            pageToken = response.pageToken
+        } while (pageToken != null)
+
+        return totalMinutes
+    }
+
+    private suspend fun readAllSleepMinutes(windowStart: Instant, windowEnd: Instant): Long {
+        var pageToken: String? = null
+        var totalMinutes = 0L
+
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(windowStart, windowEnd),
+                    pageToken = pageToken
+                )
+            )
+
+            totalMinutes += response.records.sumOf { session ->
+                ChronoUnit.MINUTES.between(session.startTime, session.endTime).coerceAtLeast(0)
+            }
+            pageToken = response.pageToken
+        } while (pageToken != null)
+
+        return totalMinutes
+    }
+}

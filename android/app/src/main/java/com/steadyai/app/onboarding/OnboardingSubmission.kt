@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.steadyai.app.session.SessionManager
 import com.steadyai.core.model.onboarding.OnboardingRequest
 import com.steadyai.core.model.onboarding.OnboardingResponse
 import com.steadyai.core.network.api.ApiService
@@ -101,7 +102,8 @@ sealed interface OnboardingSubmissionEvent {
 @HiltViewModel
 class OnboardingSubmissionViewModel @Inject constructor(
     private val apiService: ApiService,
-    private val apiClient: ApiClient
+    private val apiClient: ApiClient,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(OnboardingSubmissionUiState())
     val uiState: StateFlow<OnboardingSubmissionUiState> = _uiState.asStateFlow()
@@ -186,6 +188,7 @@ class OnboardingSubmissionViewModel @Inject constructor(
 
             when (val response = apiClient.execute { apiService.submitOnboarding(request) }) {
                 is ApiResult.Success -> {
+                    sessionManager.setCurrentUserId(response.data.id)
                     _uiState.update {
                         it.copy(
                             isSubmitting = false,

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { requestAgentReply } from './api';
-import { AGENT_DISCLAIMER, AGENTS } from './data';
+import { AGENT_DISCLAIMER, AGENTS, STARTER_PROMPTS } from './data';
 import { buildAgentReply } from './engine';
 import type { AgentType, ChatMessage } from './types';
 
@@ -17,6 +17,65 @@ export function AgentInteractionPanel() {
   }));
 
   const messages = useMemo(() => threads[selectedAgent] || [], [selectedAgent, threads]);
+  const starterPrompts = STARTER_PROMPTS[selectedAgent];
+
+  async function sendPrompt(promptText: string): Promise<void> {
+    const prompt = promptText.trim();
+    if (!prompt || isSending) {
+      return;
+    }
+
+    const agentAtSend = selectedAgent;
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      text: prompt,
+      createdAt: new Date().toISOString()
+    };
+    const pendingId = `pending-${Date.now()}`;
+    const pendingMessage: ChatMessage = {
+      id: pendingId,
+      role: 'system',
+      text: 'Thinking...',
+      createdAt: new Date().toISOString()
+    };
+    setIsSending(true);
+    setThreads((prev) => ({
+      ...prev,
+      [agentAtSend]: [...(prev[agentAtSend] || []), userMessage, pendingMessage]
+    }));
+    setInput('');
+
+    try {
+      const reply = await requestAgentReply(agentAtSend, prompt);
+      const agentMessage: ChatMessage = {
+        id: `agent-${Date.now()}`,
+        role: 'agent',
+        text: reply.text,
+        reasoning: reply.reasoning,
+        createdAt: new Date().toISOString()
+      };
+
+      setThreads((prev) => ({
+        ...prev,
+        [agentAtSend]: (prev[agentAtSend] || []).filter((message) => message.id !== pendingId).concat(agentMessage)
+      }));
+    } catch {
+      const fallback = buildAgentReply(agentAtSend, prompt);
+      const fallbackMessage: ChatMessage = {
+        ...fallback,
+        text: `Live response unavailable right now. ${fallback.text}`
+      };
+      setThreads((prev) => ({
+        ...prev,
+        [agentAtSend]: (prev[agentAtSend] || [])
+          .filter((message) => message.id !== pendingId)
+          .concat(fallbackMessage)
+      }));
+    } finally {
+      setIsSending(false);
+    }
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-4 p-6">
@@ -45,6 +104,24 @@ export function AgentInteractionPanel() {
             </button>
           );
         })}
+      </section>
+
+      <section aria-label="Starter prompts" className="rounded-xl border border-gray-200 bg-white p-3">
+        <p className="mb-2 text-sm font-medium text-gray-900">Not sure what to ask? Try one:</p>
+        <div className="flex flex-wrap gap-2">
+          {starterPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => {
+                void sendPrompt(prompt);
+              }}
+              className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs text-gray-800 hover:bg-gray-100"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section
@@ -93,62 +170,8 @@ export function AgentInteractionPanel() {
             type="button"
             className="h-fit rounded-md bg-black px-4 py-2 text-sm text-white disabled:bg-gray-400"
             disabled={!input.trim() || isSending}
-            onClick={async () => {
-              const prompt = input.trim();
-              if (!prompt) {
-                return;
-              }
-
-              const agentAtSend = selectedAgent;
-              const userMessage: ChatMessage = {
-                id: `user-${Date.now()}`,
-                role: 'user',
-                text: prompt,
-                createdAt: new Date().toISOString()
-              };
-              const pendingId = `pending-${Date.now()}`;
-              const pendingMessage: ChatMessage = {
-                id: pendingId,
-                role: 'system',
-                text: 'Thinking...',
-                createdAt: new Date().toISOString()
-              };
-              setIsSending(true);
-              setThreads((prev) => ({
-                ...prev,
-                [agentAtSend]: [...(prev[agentAtSend] || []), userMessage, pendingMessage]
-              }));
-              setInput('');
-
-              try {
-                const reply = await requestAgentReply(agentAtSend, prompt);
-                const agentMessage: ChatMessage = {
-                  id: `agent-${Date.now()}`,
-                  role: 'agent',
-                  text: reply.text,
-                  reasoning: reply.reasoning,
-                  createdAt: new Date().toISOString()
-                };
-
-                setThreads((prev) => ({
-                  ...prev,
-                  [agentAtSend]: (prev[agentAtSend] || []).filter((message) => message.id !== pendingId).concat(agentMessage)
-                }));
-              } catch {
-                const fallback = buildAgentReply(agentAtSend, prompt);
-                const fallbackMessage: ChatMessage = {
-                  ...fallback,
-                  text: `Live response unavailable right now. ${fallback.text}`
-                };
-                setThreads((prev) => ({
-                  ...prev,
-                  [agentAtSend]: (prev[agentAtSend] || [])
-                    .filter((message) => message.id !== pendingId)
-                    .concat(fallbackMessage)
-                }));
-              } finally {
-                setIsSending(false);
-              }
+            onClick={() => {
+              void sendPrompt(input);
             }}
           >
             {isSending ? 'Thinking...' : 'Send'}

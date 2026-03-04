@@ -5,6 +5,7 @@ import { generateMcpUserSummary } from '../services/mcp-user-summary.service';
 
 interface McpUserSummaryBody {
   profile: BuildMcpUserSummaryInput['profile'];
+  challengeActivity?: BuildMcpUserSummaryInput['challengeActivity'];
   communityEngagement?: BuildMcpUserSummaryInput['communityEngagement'];
   purchaseHistory?: BuildMcpUserSummaryInput['purchaseHistory'];
 }
@@ -26,6 +27,7 @@ export async function mcpRoutes(fastify: FastifyInstance): Promise<void> {
       try {
         const summary = generateMcpUserSummary({
           profile: body.profile,
+          challengeActivity: body.challengeActivity,
           communityEngagement: body.communityEngagement,
           purchaseHistory: body.purchaseHistory
         });
