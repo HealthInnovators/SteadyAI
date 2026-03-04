@@ -1,4 +1,6 @@
-import type { AgentType, ChatMessage, ReasoningStep } from './types';
+import type { ChatMessage, ReasoningStep } from './types';
+
+type AgentType = 'MEAL_PLANNER' | 'HABIT_COACH' | 'COMMUNITY_GUIDE';
 
 export function buildAgentReply(agent: AgentType, prompt: string): ChatMessage {
   const normalizedPrompt = prompt.trim().slice(0, 240);

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { agentRoutes } from './agents';
+import { assistantRoutes } from './assistant';
 import { appsMcpRoutes } from './apps-mcp';
 import { challengeRoutes } from './challenges';
 import { communityRoutes } from './community';
@@ -16,6 +17,7 @@ import { workoutRoutes } from './workouts';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(agentRoutes);
+  await fastify.register(assistantRoutes);
   await fastify.register(appsMcpRoutes);
   await fastify.register(challengeRoutes);
   await fastify.register(communityRoutes);

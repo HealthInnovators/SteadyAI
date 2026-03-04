@@ -7,9 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
@@ -27,158 +28,138 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.steadyai.core.model.assistant.AssistantMessageRequest
+import com.steadyai.core.model.assistant.AssistantMessageResponse
+import com.steadyai.core.network.api.ApiService
+import com.steadyai.core.network.client.ApiClient
+import com.steadyai.core.network.model.ApiResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val AGENT_DISCLAIMER =
+private const val ASSISTANT_DISCLAIMER =
     "Steady AI guidance is educational and supportive, not medical advice. For medical concerns, consult a licensed clinician."
 
+private val STARTER_PROMPTS = listOf(
+    "I missed check-ins this week. Give me a simple reset plan.",
+    "Plan a simple 3-day high-protein meal plan with quick dinners.",
+    "Suggest one low-pressure community post I can share today.",
+    "Explain the myth: carbs at night always cause fat gain."
+)
+
 @HiltViewModel
-class AgentInteractionViewModel @Inject constructor() : ViewModel() {
+class AgentInteractionViewModel @Inject constructor(
+    private val apiService: ApiService,
+    private val apiClient: ApiClient
+) : ViewModel() {
     private val _uiState = MutableStateFlow(
         AgentUiState(
-            messagesByAgent = AgentType.entries.associateWith { listOf(welcomeMessageFor(it)) }
+            messages = listOf(
+                AgentMessage(
+                    role = MessageRole.SYSTEM,
+                    text = "Assistant Hub is ready. Ask one question and I will route it to the right tool.",
+                    disclaimer = ASSISTANT_DISCLAIMER
+                )
+            )
         )
     )
     val uiState: StateFlow<AgentUiState> = _uiState.asStateFlow()
-
-    fun selectAgent(agentType: AgentType) {
-        _uiState.update { it.copy(selectedAgent = agentType, error = null) }
-    }
 
     fun updateInput(value: String) {
         _uiState.update { it.copy(input = value, error = null) }
     }
 
     fun sendMessage() {
-        val state = uiState.value
-        if (state.isSending) {
-            return
-        }
-
-        val prompt = state.input
-        if (prompt.trim().isEmpty()) {
-            _uiState.update { it.copy(error = "Type a message before sending.") }
-            return
-        }
-
-        sendPrompt(prompt)
+        sendPrompt(uiState.value.input)
     }
 
     fun sendStarterPrompt(prompt: String) {
-        if (prompt.trim().isEmpty()) {
-            return
-        }
         sendPrompt(prompt)
     }
 
     private fun sendPrompt(promptText: String) {
-        val state = uiState.value
-        if (state.isSending) {
-            return
-        }
+        if (_uiState.value.isSending) return
         val prompt = promptText.trim()
         if (prompt.isEmpty()) {
+            _uiState.update { it.copy(error = "Type a message before sending.") }
             return
         }
+
         val userMessage = AgentMessage(role = MessageRole.USER, text = prompt)
-        val agentAtSend = state.selectedAgent
         _uiState.update {
             it.copy(
                 input = "",
                 isSending = true,
                 error = null,
-                messagesByAgent = appendMessage(
-                    messagesByAgent = it.messagesByAgent,
-                    agentType = agentAtSend,
-                    message = userMessage
-                )
+                messages = it.messages + userMessage
             )
         }
 
         viewModelScope.launch {
-            delay(250)
-            val response = agentResponseFor(agentAtSend, prompt)
-            _uiState.update {
-                it.copy(
-                    isSending = false,
-                    messagesByAgent = appendMessage(
-                        messagesByAgent = it.messagesByAgent,
-                        agentType = agentAtSend,
-                        message = response
-                    )
-                )
+            when (val result = apiClient.execute { apiService.sendAssistantMessage(AssistantMessageRequest(message = prompt)) }) {
+                is ApiResult.Success -> {
+                    val assistantMessage = result.data.toUiMessage()
+                    _uiState.update {
+                        it.copy(
+                            isSending = false,
+                            messages = it.messages + assistantMessage
+                        )
+                    }
+                }
+
+                is ApiResult.Failure -> {
+                    _uiState.update {
+                        it.copy(
+                            isSending = false,
+                            error = result.error.message,
+                            messages = it.messages + AgentMessage(
+                                role = MessageRole.AGENT,
+                                text = "Assistant is unavailable right now. Please retry.",
+                                disclaimer = ASSISTANT_DISCLAIMER
+                            )
+                        )
+                    }
+                }
             }
         }
     }
+}
 
-    private fun appendMessage(
-        messagesByAgent: Map<AgentType, List<AgentMessage>>,
-        agentType: AgentType,
-        message: AgentMessage
-    ): Map<AgentType, List<AgentMessage>> {
-        val updated = messagesByAgent.toMutableMap()
-        updated[agentType] = updated[agentType].orEmpty() + message
-        return updated
-    }
+private fun AssistantMessageResponse.toUiMessage(): AgentMessage {
+    val reasoningCard = cards.firstOrNull { it.type == "reasoning" }
+    val reasoning = reasoningCard?.items?.map { item ->
+        val parts = item.split(":")
+        if (parts.size < 2) AgentReasoning("Note", item)
+        else AgentReasoning(parts.first().trim(), parts.drop(1).joinToString(":").trim())
+    }.orEmpty()
 
-    private fun welcomeMessageFor(agentType: AgentType): AgentMessage {
-        val text = when (agentType) {
-            AgentType.MEAL_PLANNER -> "Tell me your constraints and I can draft a simple 3-day meal plan with a grocery list."
-            AgentType.HABIT_COACH -> "Share how your week felt and I can help with a supportive reflection and one focused habit adjustment."
-            AgentType.COMMUNITY_GUIDE -> "Describe your current momentum and I can suggest low-pressure community posts and peers to engage with."
-        }
-
-        return AgentMessage(
-            role = MessageRole.SYSTEM,
-            text = text,
-            disclaimer = AGENT_DISCLAIMER
+    val uiCards = cards.map { card ->
+        AssistantUiCard(
+            id = card.id,
+            type = card.type,
+            title = card.title,
+            body = card.body,
+            items = card.items,
+            actions = card.actions.map { action ->
+                AssistantUiAction(
+                    label = action.label,
+                    prompt = action.prompt
+                )
+            }
         )
     }
 
-    private fun agentResponseFor(agentType: AgentType, prompt: String): AgentMessage {
-        val summary = prompt.take(180)
-        return when (agentType) {
-            AgentType.MEAL_PLANNER -> AgentMessage(
-                role = MessageRole.AGENT,
-                text = "Plan draft ready: 3 balanced days centered on your request, with repeatable meals to reduce prep load.",
-                reasoning = listOf(
-                    AgentReasoning("Input parsed", "Used your latest request: \"$summary\"."),
-                    AgentReasoning("Plan structure", "Kept breakfast/lunch simple and varied dinner to improve consistency."),
-                    AgentReasoning("Safety", "Output avoids medical claims and stays educational.")
-                ),
-                disclaimer = AGENT_DISCLAIMER
-            )
-
-            AgentType.HABIT_COACH -> AgentMessage(
-                role = MessageRole.AGENT,
-                text = "Reflection ready: you are building consistency, and the next step is one small habit shift you can sustain this week.",
-                reasoning = listOf(
-                    AgentReasoning("Tone", "Framed feedback as supportive and non-judgmental."),
-                    AgentReasoning("Scope", "Limited to one adjustment to keep effort realistic."),
-                    AgentReasoning("Safety", "No diagnosis or medical recommendation included.")
-                ),
-                disclaimer = AGENT_DISCLAIMER
-            )
-
-            AgentType.COMMUNITY_GUIDE -> AgentMessage(
-                role = MessageRole.AGENT,
-                text = "Engagement plan ready: I suggest one progress post, one check-in question, and two peer outreach prompts.",
-                reasoning = listOf(
-                    AgentReasoning("Engagement strategy", "Prioritized low-pressure prompts that encourage participation."),
-                    AgentReasoning("Bias control", "Avoided ranking or popularity-based suggestions."),
-                    AgentReasoning("Safety", "Kept guidance informational and non-medical.")
-                ),
-                disclaimer = AGENT_DISCLAIMER
-            )
-        }
-    }
+    return AgentMessage(
+        role = MessageRole.AGENT,
+        text = reply,
+        reasoning = reasoning,
+        cards = uiCards,
+        disclaimer = disclaimer ?: ASSISTANT_DISCLAIMER
+    )
 }
 
 @Composable
@@ -192,29 +173,25 @@ fun AgentInteractionScreen(viewModel: AgentInteractionViewModel = hiltViewModel(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Agent Workspace", style = MaterialTheme.typography.titleLarge)
+            Text("Assistant Hub", style = MaterialTheme.typography.titleLarge)
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = AGENT_DISCLAIMER,
+                    text = ASSISTANT_DISCLAIMER,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(12.dp)
                 )
             }
 
-            AgentSelector(
-                selected = state.selectedAgent,
-                onSelect = viewModel::selectAgent
-            )
-
             StarterPrompts(
-                prompts = starterPromptsFor(state.selectedAgent),
+                prompts = STARTER_PROMPTS,
                 onPromptClick = viewModel::sendStarterPrompt
             )
 
             ChatMessages(
-                messages = state.currentMessages,
-                modifier = Modifier.weight(1f)
+                messages = state.messages,
+                modifier = Modifier.weight(1f),
+                onActionClick = viewModel::sendStarterPrompt
             )
 
             state.error?.let {
@@ -235,52 +212,13 @@ fun AgentInteractionScreen(viewModel: AgentInteractionViewModel = hiltViewModel(
     }
 }
 
-private fun starterPromptsFor(agentType: AgentType): List<String> {
-    return when (agentType) {
-        AgentType.MEAL_PLANNER -> listOf(
-            "Plan a simple 3-day high-protein meal plan with quick dinners.",
-            "Build a beginner-friendly 3-day meal plan and grocery list.",
-            "Suggest post-workout dinner ideas for evening training days."
-        )
-        AgentType.HABIT_COACH -> listOf(
-            "I missed check-ins this week. Give me a simple restart plan.",
-            "Help me set a 10-minute daily habit for the next 7 days.",
-            "Give me one habit adjustment I can sustain this week."
-        )
-        AgentType.COMMUNITY_GUIDE -> listOf(
-            "Suggest one low-pressure post idea I can share today.",
-            "Draft a supportive CHECK_IN post about a small win.",
-            "Give me one peer outreach message I can send today."
-        )
-    }
-}
-
-@Composable
-private fun AgentSelector(
-    selected: AgentType,
-    onSelect: (AgentType) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        AgentType.entries.forEach { type ->
-            FilterChip(
-                selected = selected == type,
-                onClick = { onSelect(type) },
-                label = { Text(type.label) }
-            )
-        }
-    }
-}
-
 @Composable
 private fun StarterPrompts(
     prompts: List<String>,
     onPromptClick: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Not sure what to ask? Try one:", style = MaterialTheme.typography.labelLarge)
+        Text("Try one:", style = MaterialTheme.typography.labelLarge)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(prompts, key = { it }) { prompt ->
                 FilterChip(
@@ -296,11 +234,12 @@ private fun StarterPrompts(
 @Composable
 private fun ChatMessages(
     messages: List<AgentMessage>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onActionClick: (String) -> Unit
 ) {
     if (messages.isEmpty()) {
         Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Text("Start by asking an agent for support.")
+            Text("Start by asking for support.")
         }
         return
     }
@@ -310,13 +249,16 @@ private fun ChatMessages(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(messages, key = { it.id }) { message ->
-            MessageBubble(message)
+            MessageBubble(message, onActionClick)
         }
     }
 }
 
 @Composable
-private fun MessageBubble(message: AgentMessage) {
+private fun MessageBubble(
+    message: AgentMessage,
+    onActionClick: (String) -> Unit
+) {
     val alignEnd = message.role == MessageRole.USER
 
     Row(
@@ -353,6 +295,38 @@ private fun MessageBubble(message: AgentMessage) {
                                     text = "• ${step.title}: ${step.detail}",
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                            }
+                        }
+                    }
+                }
+
+                if (message.cards.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        message.cards.forEach { card ->
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(card.title, style = MaterialTheme.typography.labelMedium)
+                                    card.body?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                    card.items.forEach { item ->
+                                        Text("• $item", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    if (card.actions.isNotEmpty()) {
+                                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            itemsIndexed(card.actions, key = { _, item -> "${card.id}:${item.label}" }) { _, action ->
+                                                FilterChip(
+                                                    selected = false,
+                                                    onClick = { onActionClick(action.prompt) },
+                                                    label = { Text(action.label) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

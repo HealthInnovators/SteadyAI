@@ -1,6 +1,8 @@
 package com.steadyai.core.network.api
 
 import com.steadyai.core.model.ApiStatus
+import com.steadyai.core.model.assistant.AssistantMessageRequest
+import com.steadyai.core.model.assistant.AssistantMessageResponse
 import com.steadyai.core.model.auth.GoogleSignupRequest
 import com.steadyai.core.model.auth.GoogleSignupResponse
 import com.steadyai.core.model.challenge.ChallengeCheckInRequest
@@ -72,4 +74,9 @@ interface ApiService {
 
     @GET("api/store/products")
     suspend fun getStoreProducts(): Response<StoreProductsResponse>
+
+    @POST("api/assistant/message")
+    suspend fun sendAssistantMessage(
+        @Body request: AssistantMessageRequest
+    ): Response<AssistantMessageResponse>
 }

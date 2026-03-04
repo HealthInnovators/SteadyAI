@@ -2,12 +2,6 @@ package com.steadyai.app.agents
 
 import java.util.UUID
 
-enum class AgentType(val label: String) {
-    MEAL_PLANNER("Meal Planner"),
-    HABIT_COACH("Habit Coach"),
-    COMMUNITY_GUIDE("Community Guide")
-}
-
 enum class MessageRole {
     USER,
     AGENT,
@@ -24,16 +18,27 @@ data class AgentMessage(
     val role: MessageRole,
     val text: String,
     val reasoning: List<AgentReasoning> = emptyList(),
+    val cards: List<AssistantUiCard> = emptyList(),
     val disclaimer: String? = null
 )
 
+data class AssistantUiCard(
+    val id: String,
+    val type: String,
+    val title: String,
+    val body: String?,
+    val items: List<String>,
+    val actions: List<AssistantUiAction> = emptyList()
+)
+
+data class AssistantUiAction(
+    val label: String,
+    val prompt: String
+)
+
 data class AgentUiState(
-    val selectedAgent: AgentType = AgentType.MEAL_PLANNER,
-    val messagesByAgent: Map<AgentType, List<AgentMessage>> = emptyMap(),
+    val messages: List<AgentMessage> = emptyList(),
     val input: String = "",
     val isSending: Boolean = false,
     val error: String? = null
-) {
-    val currentMessages: List<AgentMessage>
-        get() = messagesByAgent[selectedAgent].orEmpty()
-}
+)
