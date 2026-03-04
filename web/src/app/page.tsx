@@ -40,7 +40,7 @@ export default function HomePage() {
               href="/settings/api-keys"
               className="w-full block bg-white hover:bg-gray-50 text-indigo-600 font-semibold py-3 px-4 rounded-lg border border-indigo-600 transition duration-200"
             >
-              Configure API Keys
+              View AI Settings
             </Link>
           </div>
         </div>
