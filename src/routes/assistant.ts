@@ -12,6 +12,17 @@ type AssistantRoute =
   | { type: 'AGENT'; agentType: AgentChatType; toolName: 'steadyai.ask_agent' }
   | { type: 'EDUCATOR'; toolName: 'steadyai.educator_help' };
 
+type AssistantIntent =
+  | 'FITNESS'
+  | 'NUTRITION'
+  | 'TRACKING'
+  | 'CHECK_IN'
+  | 'COMMUNITY'
+  | 'REPORTS'
+  | 'STORE'
+  | 'EDUCATION'
+  | 'GENERAL';
+
 interface AssistantCard {
   id: string;
   type: 'summary' | 'reasoning' | 'next_steps';
@@ -39,10 +50,42 @@ function pickAssistantRoute(message: string): AssistantRoute {
   return { type: 'AGENT', agentType: 'HABIT_COACH', toolName: 'steadyai.ask_agent' };
 }
 
+function detectAssistantIntent(message: string): AssistantIntent {
+  const normalized = message.toLowerCase();
+
+  if (/\b(myth|misinformation|evidence|study|citation|true or false)\b/.test(normalized)) {
+    return 'EDUCATION';
+  }
+  if (/\b(workout|fitness|exercise|training|routine|strength|cardio)\b/.test(normalized)) {
+    return 'FITNESS';
+  }
+  if (/\b(meal|nutrition|grocery|protein|calorie|diet|macro)\b/.test(normalized)) {
+    return 'NUTRITION';
+  }
+  if (/\b(track|tracking|sync|steps|sleep|heart rate|phone data|health connect|wearable|device data)\b/.test(normalized)) {
+    return 'TRACKING';
+  }
+  if (/\b(check-?in|streak|habit|consistency|missed)\b/.test(normalized)) {
+    return 'CHECK_IN';
+  }
+  if (/\b(community|post|reply|engage|peer)\b/.test(normalized)) {
+    return 'COMMUNITY';
+  }
+  if (/\b(report|trend|summary|analytics|insight)\b/.test(normalized)) {
+    return 'REPORTS';
+  }
+  if (/\b(store|product|buy|purchase|coach feedback)\b/.test(normalized)) {
+    return 'STORE';
+  }
+
+  return 'GENERAL';
+}
+
 function buildCards(input: {
   reply: string;
   reasoning: Array<{ title: string; detail: string }>;
   route: AssistantRoute;
+  intent: AssistantIntent;
 }): AssistantCard[] {
   const cards: AssistantCard[] = [
     {
@@ -63,7 +106,9 @@ function buildCards(input: {
   }
 
   const nextSteps =
-    input.route.type === 'EDUCATOR'
+    input.intent === 'TRACKING'
+      ? ['Review data permissions.', 'Sync today\'s steps and activity.', 'Use reports to spot patterns before changing the plan.']
+      : input.route.type === 'EDUCATOR'
       ? ['Ask for one practical example.', 'Ask for one citation-backed clarification.', 'Ask for a myth-safe rephrase.']
       : input.route.agentType === 'MEAL_PLANNER'
         ? ['Ask for a 3-day plan.', 'Ask for a grocery list.', 'Ask for low-prep alternatives.']
@@ -77,7 +122,13 @@ function buildCards(input: {
     title: 'Suggested Next Steps',
     items: nextSteps,
     actions:
-      input.route.type === 'EDUCATOR'
+      input.intent === 'TRACKING'
+        ? [
+            { label: 'Review Permissions', prompt: 'Show me which phone and health data permissions I should enable first.' },
+            { label: 'Sync Activity', prompt: 'Help me sync today’s phone activity data into Steady AI.' },
+            { label: 'Explain Reports', prompt: 'Explain how to use synced phone data in my weekly report.' }
+          ]
+        : input.route.type === 'EDUCATOR'
         ? [
             { label: 'Practical Example', prompt: 'Give me one practical example I can apply this week.' },
             { label: 'Cited Clarification', prompt: 'Clarify this with one citation-backed explanation.' },
@@ -114,6 +165,7 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
 
     try {
       const route = pickAssistantRoute(message);
+      const intent = detectAssistantIntent(message);
 
       if (route.type === 'EDUCATOR') {
         const lesson = await generateEducatorLesson({
@@ -124,12 +176,14 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
         const cards = buildCards({
           reply: lesson.lesson,
           reasoning,
-          route
+          route,
+          intent
         });
         return reply.status(200).send({
           reply: lesson.lesson,
           disclaimer: lesson.disclaimer,
           routedTo: 'EDUCATOR',
+          intent,
           toolInvocations: [route.toolName],
           cards
         });
@@ -139,13 +193,15 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
       const cards = buildCards({
         reply: result.text,
         reasoning: result.reasoning,
-        route
+        route,
+        intent
       });
 
       return reply.status(200).send({
         reply: result.text,
         disclaimer: 'SteadyAI guidance is educational and supportive, not medical advice.',
         routedTo: route.agentType,
+        intent,
         toolInvocations: [route.toolName],
         cards
       });

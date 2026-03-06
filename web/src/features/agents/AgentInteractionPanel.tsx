@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { requestAgentReply } from './api';
 import { AGENT_DISCLAIMER, STARTER_PROMPT_GROUPS, STARTER_PROMPTS } from './data';
-import type { ChatMessage } from './types';
+import type { AssistantIntent, ChatMessage } from './types';
 
 interface AgentInteractionPanelProps {
   embedded?: boolean;
+  onIntentDetected?: (intent: AssistantIntent) => void;
 }
 
-export function AgentInteractionPanel({ embedded = false }: AgentInteractionPanelProps) {
+export function AgentInteractionPanel({ embedded = false, onIntentDetected }: AgentInteractionPanelProps) {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [activePromptGroup, setActivePromptGroup] = useState<(typeof STARTER_PROMPT_GROUPS)[number]['id']>(
@@ -49,11 +50,15 @@ export function AgentInteractionPanel({ embedded = false }: AgentInteractionPane
         id: `agent-${Date.now()}`,
         role: 'agent',
         text: reply.text,
+        routedIntent: reply.intent,
         reasoning: reply.reasoning,
         cards: reply.cards,
         createdAt: new Date().toISOString()
       };
       setMessages((prev) => prev.filter((m) => m.id !== pendingId).concat(agentMessage));
+      if (reply.intent) {
+        onIntentDetected?.(reply.intent);
+      }
     } catch {
       setMessages((prev) =>
         prev.filter((m) => m.id !== pendingId).concat({
@@ -69,20 +74,30 @@ export function AgentInteractionPanel({ embedded = false }: AgentInteractionPane
   }
 
   return (
-    <section className={`mx-auto flex w-full flex-col gap-4 ${embedded ? '' : 'min-h-screen max-w-4xl p-6'}`}>
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Assistant Hub</h1>
-        <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="note" aria-live="polite">
+    <section className={`mx-auto flex w-full flex-col gap-4 ${embedded ? '' : 'min-h-screen max-w-5xl p-6'}`}>
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#7a4b28]">
+          <span className="rounded-full bg-[#f5ddc7] px-3 py-1">Coach Mode</span>
+          <span>Intent-led guidance</span>
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-[#1d140d]">Conversational fitness and nutrition coach</h1>
+          <p className="max-w-2xl text-sm text-[#5f5145]">
+            Ask in plain language. Steady AI routes you into training, meals, community, reports, or device tracking without
+            making you learn the app first.
+          </p>
+        </div>
+        <p className="rounded-2xl border border-[#e4b98f] bg-[#fff4e6] p-3 text-sm text-[#7a4b28]" role="note" aria-live="polite">
           {AGENT_DISCLAIMER}
         </p>
       </header>
 
-      <section aria-label="Starter prompts" className="rounded-xl border border-gray-200 bg-white p-3">
+      <section aria-label="Starter prompts" className="rounded-[28px] border border-white/60 bg-white/80 p-4 shadow-[0_24px_80px_rgba(80,48,24,0.08)] backdrop-blur">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-gray-900">Starter prompts</p>
+          <p className="text-sm font-medium text-[#1d140d]">Starter prompts</p>
           <button
             type="button"
-            className="rounded-md border border-gray-300 bg-gray-50 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100"
+            className="rounded-full border border-[#d8c4b3] bg-[#fbf5ef] px-3 py-1 text-xs text-[#5f5145] hover:bg-[#f4eadf]"
             onClick={() => {
               const randomPrompt = STARTER_PROMPTS[Math.floor(Math.random() * STARTER_PROMPTS.length)];
               if (randomPrompt) {
@@ -102,12 +117,14 @@ export function AgentInteractionPanel({ embedded = false }: AgentInteractionPane
                 key={group.id}
                 type="button"
                 onClick={() => setActivePromptGroup(group.id)}
-                className={`rounded-lg border p-2 text-left ${
-                  isActive ? 'border-black bg-black text-white' : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50'
+                className={`rounded-2xl border p-3 text-left transition ${
+                  isActive
+                    ? 'border-[#1d140d] bg-[#1d140d] text-white'
+                    : 'border-[#e6d9cc] bg-white text-[#1d140d] hover:border-[#c4ad98] hover:bg-[#fcf7f1]'
                 }`}
               >
                 <p className="text-xs font-semibold">{group.label}</p>
-                <p className={`mt-1 text-[11px] ${isActive ? 'text-gray-200' : 'text-gray-500'}`}>{group.description}</p>
+                <p className={`mt-1 text-[11px] ${isActive ? 'text-[#f2e8dd]' : 'text-[#77685d]'}`}>{group.description}</p>
               </button>
             );
           })}
@@ -121,32 +138,70 @@ export function AgentInteractionPanel({ embedded = false }: AgentInteractionPane
               onClick={() => {
                 void sendPrompt(prompt);
               }}
-              className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs text-gray-800 hover:bg-gray-100"
+              className="rounded-full border border-[#dccbbb] bg-[#fbf5ef] px-3 py-1 text-xs text-[#4e4035] hover:bg-[#f3e7da]"
             >
               {prompt}
             </button>
           ))}
         </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Fitness plan', prompt: 'Give me a 30-minute workout plan for today.' },
+            { label: 'Nutrition plan', prompt: 'Create a simple 1-day high-protein meal plan.' },
+            { label: 'Generate report', prompt: 'Summarize my week and give me one improvement suggestion.' },
+            { label: 'Community help', prompt: 'Draft a supportive post for someone rebuilding consistency.' }
+          ].map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              onClick={() => {
+                void sendPrompt(action.prompt);
+              }}
+              className="rounded-2xl border border-[#dccbbb] bg-[#fffaf5] px-3 py-3 text-left text-xs font-medium text-[#4e4035] hover:bg-[#f7efe6]"
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       </section>
 
-      <section className="flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white" aria-label="Assistant conversation">
-        <ul className={`${embedded ? 'max-h-[40vh]' : 'max-h-[55vh]'} space-y-3 overflow-y-auto p-4`} role="log" aria-live="polite" aria-relevant="additions text">
+      <section
+        className="flex-1 overflow-hidden rounded-[28px] border border-white/60 bg-[#fffdf9]/95 shadow-[0_24px_80px_rgba(80,48,24,0.08)]"
+        aria-label="Assistant conversation"
+      >
+        <ul
+          className={`${embedded ? 'max-h-[40vh]' : 'max-h-[55vh]'} space-y-3 overflow-y-auto p-4`}
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+        >
           {messages.map((message) => {
             const isUser = message.role === 'user';
             return (
               <li key={message.id} className="space-y-2">
                 <div
-                  className={`rounded-lg border p-3 text-sm ${
-                    isUser ? 'ml-auto max-w-[85%] border-black bg-black text-white' : 'max-w-[92%] border-gray-200 bg-gray-50 text-gray-900'
+                  className={`rounded-3xl border p-4 text-sm ${
+                    isUser
+                      ? 'ml-auto max-w-[85%] border-[#1d140d] bg-[#1d140d] text-white'
+                      : 'max-w-[92%] border-[#eee1d5] bg-[#fcf7f1] text-[#1d140d]'
                   }`}
                 >
                   {message.text}
                 </div>
+                {!isUser && message.routedIntent && message.routedIntent !== 'GENERAL' ? (
+                  <p className="max-w-[92%] text-[11px] uppercase tracking-[0.18em] text-[#8b7868]">
+                    Detected intent: {message.routedIntent}
+                  </p>
+                ) : null}
                 {message.cards?.length ? (
                   <div className="max-w-[92%] space-y-2">
                     {message.cards.map((card) => (
-                      <div key={`${message.id}-${card.id}`} className="rounded-md border border-gray-200 bg-white p-2 text-xs text-gray-700">
-                        <p className="font-semibold">{card.title}</p>
+                      <div
+                        key={`${message.id}-${card.id}`}
+                        className="rounded-2xl border border-[#eee1d5] bg-white p-3 text-xs text-[#5f5145]"
+                      >
+                        <p className="font-semibold text-[#1d140d]">{card.title}</p>
                         {card.body ? <p className="mt-1">{card.body}</p> : null}
                         {card.items?.length ? (
                           <ul className="mt-1 list-disc space-y-1 pl-4">
@@ -161,7 +216,7 @@ export function AgentInteractionPanel({ embedded = false }: AgentInteractionPane
                               <button
                                 key={`${card.id}-${action.label}`}
                                 type="button"
-                                className="rounded-full border border-gray-300 bg-gray-50 px-2 py-1 text-[11px] text-gray-800 hover:bg-gray-100"
+                                className="rounded-full border border-[#dccbbb] bg-[#fbf5ef] px-2 py-1 text-[11px] text-[#4e4035] hover:bg-[#f3e7da]"
                                 onClick={() => {
                                   void sendPrompt(action.prompt);
                                 }}
@@ -181,21 +236,21 @@ export function AgentInteractionPanel({ embedded = false }: AgentInteractionPane
         </ul>
       </section>
 
-      <section aria-label="Compose message" className="rounded-xl border border-gray-200 bg-white p-3">
-        <label htmlFor="assistant-input" className="mb-2 block text-sm font-medium">
-          Ask anything about habit, meals, community, or myths
+      <section aria-label="Compose message" className="rounded-[28px] border border-white/60 bg-white/80 p-4 shadow-[0_24px_80px_rgba(80,48,24,0.08)]">
+        <label htmlFor="assistant-input" className="mb-2 block text-sm font-medium text-[#1d140d]">
+          Ask about workouts, meals, reports, community, store options, or syncing data from your phone
         </label>
         <div className="flex gap-2">
           <textarea
             id="assistant-input"
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            className="min-h-20 w-full rounded-md border border-gray-300 p-2 text-sm"
+            className="min-h-20 w-full rounded-3xl border border-[#dccbbb] bg-[#fffcf8] p-3 text-sm outline-none transition focus:border-[#1d140d]"
             placeholder="Type your question or context"
           />
           <button
             type="button"
-            className="h-fit rounded-md bg-black px-4 py-2 text-sm text-white disabled:bg-gray-400"
+            className="h-fit rounded-full bg-[#1d140d] px-5 py-3 text-sm text-white disabled:bg-[#ab9a8c]"
             disabled={!input.trim() || isSending}
             onClick={() => {
               void sendPrompt(input);
@@ -213,7 +268,7 @@ function welcomeMessage(): ChatMessage {
   return {
     id: 'system-assistant-hub',
     role: 'system',
-    text: 'Assistant Hub is ready. Pick a starter prompt to quickly route to meal planning, habit coaching, community guidance, or myth clarification.',
+    text: 'Steady AI is ready. Tell me your goal, your meal context, what happened in training, or what data you want to sync from your phone and I will route you.',
     createdAt: new Date().toISOString()
   };
 }

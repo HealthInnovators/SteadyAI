@@ -4,8 +4,8 @@ import { AppTopNav } from '../components/AppTopNav';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Steady AI',
-  description: 'Steady AI web application'
+  title: 'Steady AI | Fitness, Nutrition, Community, and Reports',
+  description: 'Conversational fitness and nutrition coaching with tracking, reports, community engagement, and a store.'
 };
 
 export default function RootLayout({
@@ -15,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className="antialiased">
         <Providers>
           <AppTopNav />
           {children}

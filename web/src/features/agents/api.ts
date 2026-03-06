@@ -1,9 +1,10 @@
 import { createApiClient } from '@/lib/api';
-import type { AssistantCard, ReasoningStep } from './types';
+import type { AssistantCard, AssistantIntent, ReasoningStep } from './types';
 
 interface AgentReplyResponse {
   reply: string;
   routedTo: string;
+  intent?: AssistantIntent;
   toolInvocations: string[];
   disclaimer?: string;
   cards?: AssistantCard[];
@@ -11,7 +12,7 @@ interface AgentReplyResponse {
 
 const AGENT_REQUEST_TIMEOUT_MS = 12000;
 
-export async function requestAgentReply(prompt: string): Promise<{ text: string; reasoning?: ReasoningStep[]; cards?: AssistantCard[] }> {
+export async function requestAgentReply(prompt: string): Promise<{ text: string; intent?: AssistantIntent; reasoning?: ReasoningStep[]; cards?: AssistantCard[] }> {
   const api = createApiClient();
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), AGENT_REQUEST_TIMEOUT_MS);
@@ -35,6 +36,7 @@ export async function requestAgentReply(prompt: string): Promise<{ text: string;
 
     return {
       text: response.reply,
+      intent: response.intent,
       reasoning,
       cards: response.cards
     };

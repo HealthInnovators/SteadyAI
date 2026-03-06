@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 
 import { env } from './config/env';
 import { disconnectPrisma } from './db/prisma';
+import { appsMcpRoutes } from './routes/apps-mcp';
 import { registerRoutes } from './routes';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -31,6 +32,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     return { status: 'ok', message: 'SteadyAI Backend is running' };
   });
 
+  await app.register(appsMcpRoutes);
   await app.register(registerRoutes, { prefix: '/api' });
 
   return app;

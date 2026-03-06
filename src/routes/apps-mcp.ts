@@ -73,6 +73,15 @@ const SUMMARY_WIDGET_TEMPLATE_URI = 'ui://widget/steadyai-summary-card.html';
 const WORKOUT_WIDGET_TEMPLATE_URI = 'ui://widget/steadyai-workout-card.html';
 const NUTRITION_WIDGET_TEMPLATE_URI = 'ui://widget/steadyai-nutrition-card-v3.html';
 
+function getPublicBaseUrl(): string {
+  return env.PUBLIC_BASE_URL.replace(/\/+$/, '');
+}
+
+function getPublicMcpUrl(): string {
+  const baseUrl = getPublicBaseUrl();
+  return baseUrl ? `${baseUrl}/mcp` : '/mcp';
+}
+
 const TOOLS: ToolDescriptor[] = [
   {
     name: 'steadyai.get_user_summary',
@@ -2690,7 +2699,7 @@ async function handleToolCall(
 }
 
 export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.get('/apps/manifest', async (request, reply) => {
+  const manifestHandler = async (request: FastifyRequest, reply: FastifyReply) => {
     if (!ensureAuthorized(request, reply)) {
       return;
     }
@@ -2700,8 +2709,8 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
-    const baseUrl = env.PUBLIC_BASE_URL.replace(/\/+$/, '');
-    const serverUrl = baseUrl ? `${baseUrl}/api/apps/mcp` : '/api/apps/mcp';
+    const baseUrl = getPublicBaseUrl();
+    const serverUrl = baseUrl ? `${baseUrl}/mcp` : '/mcp';
 
     return reply.status(200).send({
       name: 'SteadyAI',
@@ -2713,9 +2722,74 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
       },
       tools: TOOLS
     });
-  });
+  };
 
-  fastify.post<{ Body: JsonRpcRequest }>('/apps/mcp', async (request, reply) => {
+  const mcpInfoHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!ensureAuthorized(request, reply)) {
+      return;
+    }
+
+    const serverUrl = getPublicMcpUrl();
+
+    return reply.status(200).send({
+      name: 'SteadyAI MCP',
+      transport: 'http',
+      url: serverUrl,
+      capabilities: {
+        tools: true,
+        resources: true
+      }
+    });
+  };
+
+  const oauthProtectedResourceHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!ensureAuthorized(request, reply)) {
+      return;
+    }
+
+    const mcpUrl = getPublicMcpUrl();
+    return reply.status(200).send({
+      resource: mcpUrl,
+      authorization_servers: [],
+      bearer_methods_supported: ['header']
+    });
+  };
+
+  const oauthAuthorizationServerHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!ensureAuthorized(request, reply)) {
+      return;
+    }
+
+    const issuer = getPublicBaseUrl() || getPublicMcpUrl();
+    return reply.status(200).send({
+      issuer,
+      authorization_endpoint: null,
+      token_endpoint: null,
+      registration_endpoint: null,
+      response_types_supported: [],
+      grant_types_supported: [],
+      token_endpoint_auth_methods_supported: []
+    });
+  };
+
+  const openIdConfigurationHandler = async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!ensureAuthorized(request, reply)) {
+      return;
+    }
+
+    const issuer = getPublicBaseUrl() || getPublicMcpUrl();
+    return reply.status(200).send({
+      issuer,
+      authorization_endpoint: null,
+      token_endpoint: null,
+      jwks_uri: null,
+      response_types_supported: [],
+      subject_types_supported: [],
+      id_token_signing_alg_values_supported: []
+    });
+  };
+
+  const mcpPostHandler = async (request: FastifyRequest<{ Body: JsonRpcRequest }>, reply: FastifyReply) => {
     if (!ensureAuthorized(request, reply)) {
       return;
     }
@@ -2826,5 +2900,16 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
       const message = error instanceof Error ? error.message : 'Internal error';
       sendJsonRpcError(reply, id, -32000, message);
     }
-  });
+  };
+
+  fastify.get('/apps/manifest', manifestHandler);
+  fastify.get('/.well-known/oauth-protected-resource', oauthProtectedResourceHandler);
+  fastify.get('/.well-known/oauth-protected-resource/mcp', oauthProtectedResourceHandler);
+  fastify.get('/.well-known/oauth-authorization-server', oauthAuthorizationServerHandler);
+  fastify.get('/.well-known/oauth-authorization-server/mcp', oauthAuthorizationServerHandler);
+  fastify.get('/.well-known/openid-configuration', openIdConfigurationHandler);
+  fastify.get('/mcp/.well-known/openid-configuration', openIdConfigurationHandler);
+  fastify.get('/mcp', mcpInfoHandler);
+  fastify.post<{ Body: JsonRpcRequest }>('/mcp', mcpPostHandler);
+  fastify.post<{ Body: JsonRpcRequest }>('/apps/mcp', mcpPostHandler);
 }
