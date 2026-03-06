@@ -27,7 +27,7 @@ Log out and back in once after adding your user to the docker group.
 ```bash
 git clone https://github.com/HealthInnovators/SteadyAI.git
 cd SteadyAI
-cp .env .env.production
+cp .env.production.example .env.production
 ```
 
 Edit `.env.production` with production values. Required keys:
@@ -44,7 +44,20 @@ Edit `.env.production` with production values. Required keys:
 - `APPS_MCP_API_KEY` (if using apps MCP auth)
 - LLM keys you use (`OPENAI_API_KEY` or others)
 
+Also set the web auth values:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
 ## 3) Build and run
+
+One-command option:
+
+```bash
+chmod +x deploy/digitalocean-deploy.sh
+./deploy/digitalocean-deploy.sh --env-file .env.production
+```
+
+Manual option:
 
 ```bash
 docker compose --env-file .env.production up -d --build
@@ -72,8 +85,29 @@ Open:
 - `https://<APP_DOMAIN>/` (web)
 - `https://<APP_DOMAIN>/reports`
 - `https://<APP_DOMAIN>/store`
+- `https://<API_DOMAIN>/.well-known/oauth-authorization-server`
 
-## 7) DNS requirements
+## 7) Supabase auth callbacks
+
+In Supabase Auth, add these redirect URLs before testing sign-in:
+
+- `https://<APP_DOMAIN>/auth/callback`
+- `https://<API_DOMAIN>/oauth/callback`
+
+If you use localhost for testing too, also keep:
+
+- `http://localhost:3001/auth/callback`
+
+Enable the auth providers you plan to use:
+
+- Google
+- Apple
+
+For ChatGPT MCP OAuth, the production connector URL should be:
+
+- `https://<API_DOMAIN>/mcp`
+
+## 8) DNS requirements
 
 Create DNS `A` records pointing to your droplet IP:
 - `<APP_DOMAIN>` -> droplet public IP
