@@ -1,4 +1,5 @@
 import multipart from '@fastify/multipart';
+import formbody from '@fastify/formbody';
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 
@@ -22,6 +23,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       files: 5
     }
   });
+  await app.register(formbody);
 
   app.addHook('onClose', async () => {
     await disconnectPrisma();

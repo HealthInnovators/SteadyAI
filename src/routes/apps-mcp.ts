@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 
 import { env } from '../config/env';
 import { getPrismaClient } from '../db/prisma';
@@ -72,6 +73,77 @@ const EDUCATOR_WIDGET_TEMPLATE_URI = 'ui://widget/steadyai-educator-card.html';
 const SUMMARY_WIDGET_TEMPLATE_URI = 'ui://widget/steadyai-summary-card.html';
 const WORKOUT_WIDGET_TEMPLATE_URI = 'ui://widget/steadyai-workout-card.html';
 const NUTRITION_WIDGET_TEMPLATE_URI = 'ui://widget/steadyai-nutrition-card-v3.html';
+const MCP_SESSION_COOKIE = 'steadyai_mcp_session';
+const SUPABASE_FLOW_COOKIE = 'steadyai_supabase_flow';
+const AUTH_CODE_TTL_MS = 5 * 60 * 1000;
+const MCP_SESSION_TTL_MS = 60 * 60 * 1000;
+const SUPABASE_FLOW_TTL_MS = 10 * 60 * 1000;
+
+interface OAuthAuthorizeQuerystring {
+  response_type?: string;
+  client_id?: string;
+  redirect_uri?: string;
+  state?: string;
+  scope?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+}
+
+interface OAuthStartQuerystring {
+  provider?: string;
+  return_to?: string;
+}
+
+interface OAuthCallbackQuerystring {
+  code?: string;
+  flow?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface OAuthTokenBody {
+  grant_type?: string;
+  code?: string;
+  redirect_uri?: string;
+  client_id?: string;
+  code_verifier?: string;
+  refresh_token?: string;
+}
+
+interface PendingSupabaseFlow {
+  id: string;
+  provider: 'google' | 'apple';
+  returnTo: string;
+  codeVerifier: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+interface McpOAuthSession {
+  id: string;
+  accessToken: string;
+  refreshToken: string | null;
+  userId: string;
+  userEmail: string | null;
+  createdAt: number;
+  expiresAt: number;
+}
+
+interface McpAuthorizationCode {
+  code: string;
+  sessionId: string;
+  clientId: string;
+  redirectUri: string;
+  scope: string;
+  codeChallenge: string;
+  codeChallengeMethod: 'S256';
+  createdAt: number;
+  expiresAt: number;
+}
+
+const pendingSupabaseFlows = new Map<string, PendingSupabaseFlow>();
+const mcpOAuthSessions = new Map<string, McpOAuthSession>();
+const mcpAuthorizationCodes = new Map<string, McpAuthorizationCode>();
 
 function getPublicBaseUrl(): string {
   return env.PUBLIC_BASE_URL.replace(/\/+$/, '');
@@ -80,6 +152,30 @@ function getPublicBaseUrl(): string {
 function getPublicMcpUrl(): string {
   const baseUrl = getPublicBaseUrl();
   return baseUrl ? `${baseUrl}/mcp` : '/mcp';
+}
+
+function getOAuthIssuer(): string {
+  return getPublicBaseUrl() || `http://127.0.0.1:${env.PORT}`;
+}
+
+function getOAuthAuthorizeUrl(): string {
+  return `${getOAuthIssuer()}/oauth/authorize`;
+}
+
+function getOAuthTokenUrl(): string {
+  return `${getOAuthIssuer()}/oauth/token`;
+}
+
+function getOAuthProtectedResourceUrl(): string {
+  return `${getOAuthIssuer()}/.well-known/oauth-protected-resource`;
+}
+
+function getSupabaseAuthBaseUrl(): string {
+  return `${env.SUPABASE_URL.replace(/\/+$/, '')}/auth/v1`;
+}
+
+function hasSupabaseOAuthSupport(): boolean {
+  return Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY && getPublicBaseUrl());
 }
 
 const TOOLS: ToolDescriptor[] = [
@@ -2165,6 +2261,43 @@ function ensureAuthorized(request: FastifyRequest, reply: FastifyReply): boolean
   return true;
 }
 
+function sendOAuthChallenge(reply: FastifyReply): void {
+  const resourceMetadata = getOAuthProtectedResourceUrl();
+  reply.header('WWW-Authenticate', `Bearer realm="steadyai-mcp", resource_metadata="${resourceMetadata}"`);
+  void reply.status(401).send({ error: 'Authentication required' });
+}
+
+function ensureMcpRequestAuthorized(request: FastifyRequest, reply: FastifyReply): boolean {
+  const auth = request.headers.authorization;
+  const serviceKey = env.APPS_MCP_API_KEY.trim();
+
+  if (!auth) {
+    if (hasSupabaseOAuthSupport()) {
+      sendOAuthChallenge(reply);
+      return false;
+    }
+
+    if (!serviceKey) {
+      return true;
+    }
+
+    void reply.status(401).send({ error: 'Missing bearer token' });
+    return false;
+  }
+
+  if (!auth.startsWith('Bearer ')) {
+    if (hasSupabaseOAuthSupport()) {
+      sendOAuthChallenge(reply);
+      return false;
+    }
+
+    void reply.status(401).send({ error: 'Missing bearer token' });
+    return false;
+  }
+
+  return true;
+}
+
 function getBearerToken(request: FastifyRequest): string | null {
   const auth = request.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) {
@@ -2198,9 +2331,323 @@ async function resolveUserFromSupabaseAccessToken(token: string): Promise<{ id: 
   return { id: user.id, email: user.email };
 }
 
+async function exchangeSupabasePkceCode(authCode: string, codeVerifier: string): Promise<{
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  user?: { id?: string; email?: string };
+}> {
+  const response = await fetch(`${getSupabaseAuthBaseUrl()}/token?grant_type=pkce`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.SUPABASE_PUBLISHABLE_KEY
+    },
+    body: JSON.stringify({
+      auth_code: authCode,
+      code_verifier: codeVerifier
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to exchange Supabase PKCE code');
+  }
+
+  return (await response.json()) as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+    user?: { id?: string; email?: string };
+  };
+}
+
+async function refreshSupabaseAccessToken(refreshToken: string): Promise<{
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+}> {
+  const response = await fetch(`${getSupabaseAuthBaseUrl()}/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: env.SUPABASE_PUBLISHABLE_KEY
+    },
+    body: JSON.stringify({
+      refresh_token: refreshToken
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to refresh Supabase access token');
+  }
+
+  return (await response.json()) as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+  };
+}
+
+function cleanupExpiredOAuthState(): void {
+  const now = Date.now();
+
+  for (const [id, flow] of pendingSupabaseFlows.entries()) {
+    if (flow.expiresAt <= now) {
+      pendingSupabaseFlows.delete(id);
+    }
+  }
+
+  for (const [id, session] of mcpOAuthSessions.entries()) {
+    if (session.expiresAt <= now) {
+      mcpOAuthSessions.delete(id);
+    }
+  }
+
+  for (const [code, authCode] of mcpAuthorizationCodes.entries()) {
+    if (authCode.expiresAt <= now) {
+      mcpAuthorizationCodes.delete(code);
+    }
+  }
+}
+
+function parseCookies(request: FastifyRequest): Record<string, string> {
+  const header = request.headers.cookie;
+  if (!header) {
+    return {};
+  }
+
+  return header.split(';').reduce<Record<string, string>>((acc, part) => {
+    const [rawKey, ...rawValue] = part.trim().split('=');
+    if (!rawKey) {
+      return acc;
+    }
+    acc[rawKey] = decodeURIComponent(rawValue.join('=') || '');
+    return acc;
+  }, {});
+}
+
+function appendSetCookie(reply: FastifyReply, cookie: string): void {
+  const existing = reply.getHeader('Set-Cookie');
+  if (!existing) {
+    reply.header('Set-Cookie', cookie);
+    return;
+  }
+  if (Array.isArray(existing)) {
+    reply.header('Set-Cookie', [...existing, cookie]);
+    return;
+  }
+  reply.header('Set-Cookie', [String(existing), cookie]);
+}
+
+function serializeCookie(name: string, value: string, options?: { maxAgeSeconds?: number; path?: string; httpOnly?: boolean }): string {
+  const segments = [`${name}=${encodeURIComponent(value)}`];
+  segments.push(`Path=${options?.path ?? '/'}`);
+  segments.push('SameSite=Lax');
+  if (options?.httpOnly !== false) {
+    segments.push('HttpOnly');
+  }
+  if (getOAuthIssuer().startsWith('https://')) {
+    segments.push('Secure');
+  }
+  if (typeof options?.maxAgeSeconds === 'number') {
+    segments.push(`Max-Age=${Math.max(0, Math.floor(options.maxAgeSeconds))}`);
+  }
+  return segments.join('; ');
+}
+
+function clearCookie(reply: FastifyReply, name: string): void {
+  appendSetCookie(reply, serializeCookie(name, '', { maxAgeSeconds: 0 }));
+}
+
+function randomToken(prefix: string): string {
+  return `${prefix}_${randomBytes(24).toString('base64url')}`;
+}
+
+function sha256Base64Url(value: string): string {
+  return createHash('sha256').update(value).digest('base64url');
+}
+
+function isSafeRedirectUri(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'https:') {
+      return true;
+    }
+    return (url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1'));
+  } catch {
+    return false;
+  }
+}
+
+function getAuthorizeQueryFromRequest(request: FastifyRequest<{ Querystring: OAuthAuthorizeQuerystring }>): OAuthAuthorizeQuerystring {
+  return request.query ?? {};
+}
+
+function validateAuthorizeRequest(query: OAuthAuthorizeQuerystring): {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+  scope: string;
+  codeChallenge: string;
+  codeChallengeMethod: 'S256';
+} {
+  if (query.response_type !== 'code') {
+    throw new Error('response_type=code is required');
+  }
+  if (!query.client_id?.trim()) {
+    throw new Error('client_id is required');
+  }
+  if (!query.redirect_uri?.trim() || !isSafeRedirectUri(query.redirect_uri)) {
+    throw new Error('redirect_uri must be an absolute https URL or localhost URL');
+  }
+  if (!query.state?.trim()) {
+    throw new Error('state is required');
+  }
+  if (!query.code_challenge?.trim()) {
+    throw new Error('code_challenge is required');
+  }
+  if ((query.code_challenge_method || 'S256') !== 'S256') {
+    throw new Error('code_challenge_method must be S256');
+  }
+
+  return {
+    clientId: query.client_id.trim(),
+    redirectUri: query.redirect_uri.trim(),
+    state: query.state.trim(),
+    scope: query.scope?.trim() || 'openid profile email',
+    codeChallenge: query.code_challenge.trim(),
+    codeChallengeMethod: 'S256'
+  };
+}
+
+function buildAuthorizeReturnTo(query: OAuthAuthorizeQuerystring): string {
+  const url = new URL('/oauth/authorize', getOAuthIssuer());
+  Object.entries(query).forEach(([key, value]) => {
+    if (typeof value === 'string' && value) {
+      url.searchParams.set(key, value);
+    }
+  });
+  return url.toString();
+}
+
+function readMcpSession(request: FastifyRequest): McpOAuthSession | null {
+  cleanupExpiredOAuthState();
+  const cookies = parseCookies(request);
+  const sessionId = cookies[MCP_SESSION_COOKIE];
+  if (!sessionId) {
+    return null;
+  }
+
+  const session = mcpOAuthSessions.get(sessionId);
+  if (!session) {
+    return null;
+  }
+
+  if (session.expiresAt <= Date.now()) {
+    mcpOAuthSessions.delete(sessionId);
+    return null;
+  }
+
+  return session;
+}
+
+function setMcpSessionCookie(reply: FastifyReply, sessionId: string): void {
+  appendSetCookie(reply, serializeCookie(MCP_SESSION_COOKIE, sessionId, { maxAgeSeconds: MCP_SESSION_TTL_MS / 1000 }));
+}
+
+function createMcpOAuthSession(input: {
+  accessToken: string;
+  refreshToken?: string | null;
+  userId: string;
+  userEmail?: string | null;
+  expiresInSeconds?: number;
+}): McpOAuthSession {
+  cleanupExpiredOAuthState();
+  const session: McpOAuthSession = {
+    id: randomToken('mcp_session'),
+    accessToken: input.accessToken,
+    refreshToken: input.refreshToken ?? null,
+    userId: input.userId,
+    userEmail: input.userEmail ?? null,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + Math.max(60, input.expiresInSeconds ?? MCP_SESSION_TTL_MS / 1000) * 1000
+  };
+  mcpOAuthSessions.set(session.id, session);
+  return session;
+}
+
+function createAuthorizationCode(input: {
+  sessionId: string;
+  clientId: string;
+  redirectUri: string;
+  scope: string;
+  codeChallenge: string;
+  codeChallengeMethod: 'S256';
+}): McpAuthorizationCode {
+  cleanupExpiredOAuthState();
+  const code: McpAuthorizationCode = {
+    code: randomToken('mcp_code'),
+    sessionId: input.sessionId,
+    clientId: input.clientId,
+    redirectUri: input.redirectUri,
+    scope: input.scope,
+    codeChallenge: input.codeChallenge,
+    codeChallengeMethod: input.codeChallengeMethod,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + AUTH_CODE_TTL_MS
+  };
+  mcpAuthorizationCodes.set(code.code, code);
+  return code;
+}
+
+function renderOAuthLoginPage(input: { authorizeUrl: string; error?: string | null }): string {
+  const googleUrl = `/oauth/login?provider=google&return_to=${encodeURIComponent(input.authorizeUrl)}`;
+  const appleUrl = `/oauth/login?provider=apple&return_to=${encodeURIComponent(input.authorizeUrl)}`;
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connect Steady AI</title>
+    <style>
+      body { font-family: system-ui, sans-serif; background: #f4efe8; color: #1d140d; margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+      .card { max-width: 560px; width: 100%; background: rgba(255,250,245,.96); border: 1px solid #ead9ca; border-radius: 28px; padding: 32px; box-shadow: 0 24px 80px rgba(80,48,24,.08); }
+      .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; color: #7a4b28; }
+      h1 { margin: 12px 0 8px; font-size: 32px; }
+      p { line-height: 1.7; color: #5f5145; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+      a { text-decoration: none; border-radius: 999px; padding: 14px 20px; font-weight: 600; }
+      .primary { background: #1d140d; color: white; }
+      .secondary { border: 1px solid #1d140d; color: #1d140d; background: white; }
+      .error { margin-top: 16px; color: #b42318; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="eyebrow">Steady AI for ChatGPT</div>
+      <h1>Sign in to connect your coaching account</h1>
+      <p>Choose a provider to connect Steady AI with ChatGPT. This lets ChatGPT access your workouts, nutrition logs, reports, and community context as you.</p>
+      ${input.error ? `<p class="error">${input.error}</p>` : ''}
+      <div class="actions">
+        <a class="primary" href="${googleUrl}">Continue with Google</a>
+        <a class="secondary" href="${appleUrl}">Continue with Apple</a>
+      </div>
+    </main>
+  </body>
+</html>`;
+}
+
 async function resolveMcpAuthContext(request: FastifyRequest): Promise<McpAuthContext> {
   const token = getBearerToken(request);
   if (!token) {
+    const session = readMcpSession(request);
+    if (session) {
+      return {
+        mode: 'user-token',
+        userId: session.userId,
+        userEmail: session.userEmail
+      };
+    }
     return { mode: 'none', userId: null, userEmail: null };
   }
 
@@ -2712,42 +3159,24 @@ async function handleToolCall(
 }
 
 export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
-  const manifestHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!ensureAuthorized(request, reply)) {
-      return;
-    }
-    try {
-      await resolveMcpAuthContext(request);
-    } catch {
-      return reply.status(401).send({ error: 'Unauthorized' });
-    }
-
-    const baseUrl = getPublicBaseUrl();
-    const serverUrl = baseUrl ? `${baseUrl}/mcp` : '/mcp';
-
+  const manifestHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(200).send({
       name: 'SteadyAI',
       description:
         'SteadyAI coaching tools. For habit reset/meal/community guidance use steadyai.ask_agent; for personalized workouts with exercise GIFs use steadyai.workout_coach.',
       mcpServer: {
         transport: 'http',
-        url: serverUrl
+        url: getPublicMcpUrl()
       },
       tools: TOOLS
     });
   };
 
-  const mcpInfoHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!ensureAuthorized(request, reply)) {
-      return;
-    }
-
-    const serverUrl = getPublicMcpUrl();
-
+  const mcpInfoHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(200).send({
       name: 'SteadyAI MCP',
       transport: 'http',
-      url: serverUrl,
+      url: getPublicMcpUrl(),
       capabilities: {
         tools: true,
         resources: true
@@ -2755,61 +3184,275 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
     });
   };
 
-  const oauthProtectedResourceHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!ensureAuthorized(request, reply)) {
-      return;
-    }
-
+  const oauthProtectedResourceHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
     const mcpUrl = getPublicMcpUrl();
     return reply.status(200).send({
       resource: mcpUrl,
-      authorization_servers: [],
-      bearer_methods_supported: ['header']
+      authorization_servers: [getOAuthIssuer()],
+      bearer_methods_supported: ['header'],
+      scopes_supported: ['openid', 'profile', 'email']
     });
   };
 
-  const oauthAuthorizationServerHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!ensureAuthorized(request, reply)) {
-      return;
-    }
-
-    const issuer = getPublicBaseUrl() || getPublicMcpUrl();
+  const oauthAuthorizationServerHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
+    const issuer = getOAuthIssuer();
     return reply.status(200).send({
       issuer,
-      authorization_endpoint: null,
-      token_endpoint: null,
+      authorization_endpoint: getOAuthAuthorizeUrl(),
+      token_endpoint: getOAuthTokenUrl(),
       registration_endpoint: null,
-      response_types_supported: [],
-      grant_types_supported: [],
-      token_endpoint_auth_methods_supported: []
+      response_types_supported: ['code'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      token_endpoint_auth_methods_supported: ['none'],
+      scopes_supported: ['openid', 'profile', 'email'],
+      code_challenge_methods_supported: ['S256']
     });
   };
 
-  const openIdConfigurationHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!ensureAuthorized(request, reply)) {
-      return;
-    }
-
-    const issuer = getPublicBaseUrl() || getPublicMcpUrl();
+  const openIdConfigurationHandler = async (_request: FastifyRequest, reply: FastifyReply) => {
+    const issuer = getOAuthIssuer();
     return reply.status(200).send({
       issuer,
-      authorization_endpoint: null,
-      token_endpoint: null,
-      jwks_uri: null,
-      response_types_supported: [],
-      subject_types_supported: [],
-      id_token_signing_alg_values_supported: []
+      authorization_endpoint: getOAuthAuthorizeUrl(),
+      token_endpoint: getOAuthTokenUrl(),
+      jwks_uri: `${issuer}/.well-known/jwks.json`,
+      response_types_supported: ['code'],
+      subject_types_supported: ['public'],
+      id_token_signing_alg_values_supported: ['RS256'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      scopes_supported: ['openid', 'profile', 'email'],
+      code_challenge_methods_supported: ['S256']
     });
+  };
+
+  const oauthAuthorizeHandler = async (
+    request: FastifyRequest<{ Querystring: OAuthAuthorizeQuerystring }>,
+    reply: FastifyReply
+  ) => {
+    if (!hasSupabaseOAuthSupport()) {
+      return reply.status(503).send({ error: 'Supabase OAuth is not configured for MCP.' });
+    }
+
+    cleanupExpiredOAuthState();
+
+    const authorizeQuery = getAuthorizeQueryFromRequest(request);
+    try {
+      const validated = validateAuthorizeRequest(authorizeQuery);
+      const session = readMcpSession(request);
+
+      if (!session) {
+        reply.type('text/html; charset=utf-8');
+        return reply.status(200).send(
+          renderOAuthLoginPage({
+            authorizeUrl: buildAuthorizeReturnTo(authorizeQuery)
+          })
+        );
+      }
+
+      const authCode = createAuthorizationCode({
+        sessionId: session.id,
+        clientId: validated.clientId,
+        redirectUri: validated.redirectUri,
+        scope: validated.scope,
+        codeChallenge: validated.codeChallenge,
+        codeChallengeMethod: validated.codeChallengeMethod
+      });
+      const redirectTarget = new URL(validated.redirectUri);
+      redirectTarget.searchParams.set('code', authCode.code);
+      redirectTarget.searchParams.set('state', validated.state);
+      return reply.redirect(redirectTarget.toString());
+    } catch (error) {
+      reply.type('text/html; charset=utf-8');
+      return reply.status(400).send(
+        renderOAuthLoginPage({
+          authorizeUrl: buildAuthorizeReturnTo(authorizeQuery),
+          error: error instanceof Error ? error.message : 'Invalid OAuth request.'
+        })
+      );
+    }
+  };
+
+  const oauthLoginHandler = async (
+    request: FastifyRequest<{ Querystring: OAuthStartQuerystring }>,
+    reply: FastifyReply
+  ) => {
+    if (!hasSupabaseOAuthSupport()) {
+      return reply.status(503).send({ error: 'Supabase OAuth is not configured for MCP.' });
+    }
+
+    const provider = request.query.provider === 'apple' ? 'apple' : request.query.provider === 'google' ? 'google' : null;
+    const returnTo = typeof request.query.return_to === 'string' ? request.query.return_to : '';
+    if (!provider) {
+      return reply.status(400).send({ error: 'provider must be google or apple' });
+    }
+    if (!returnTo) {
+      return reply.status(400).send({ error: 'return_to is required' });
+    }
+    if (!returnTo.startsWith(getOAuthAuthorizeUrl())) {
+      return reply.status(400).send({ error: 'return_to must point to the Steady AI authorize endpoint' });
+    }
+
+    const flowId = randomToken('supabase_flow');
+    const codeVerifier = randomToken('code_verifier');
+    const flow: PendingSupabaseFlow = {
+      id: flowId,
+      provider,
+      returnTo,
+      codeVerifier,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + SUPABASE_FLOW_TTL_MS
+    };
+    pendingSupabaseFlows.set(flowId, flow);
+    appendSetCookie(reply, serializeCookie(SUPABASE_FLOW_COOKIE, flowId, { maxAgeSeconds: SUPABASE_FLOW_TTL_MS / 1000 }));
+
+    const callbackUrl = new URL('/oauth/callback', getOAuthIssuer());
+    callbackUrl.searchParams.set('flow', flowId);
+
+    const supabaseUrl = new URL(`${getSupabaseAuthBaseUrl()}/authorize`);
+    supabaseUrl.searchParams.set('provider', provider);
+    supabaseUrl.searchParams.set('redirect_to', callbackUrl.toString());
+    supabaseUrl.searchParams.set('code_challenge', sha256Base64Url(codeVerifier));
+    supabaseUrl.searchParams.set('code_challenge_method', 's256');
+
+    return reply.redirect(supabaseUrl.toString());
+  };
+
+  const oauthCallbackHandler = async (
+    request: FastifyRequest<{ Querystring: OAuthCallbackQuerystring }>,
+    reply: FastifyReply
+  ) => {
+    if (!hasSupabaseOAuthSupport()) {
+      return reply.status(503).send({ error: 'Supabase OAuth is not configured for MCP.' });
+    }
+
+    cleanupExpiredOAuthState();
+
+    const cookies = parseCookies(request);
+    const flowId = request.query.flow || cookies[SUPABASE_FLOW_COOKIE] || '';
+    const flow = pendingSupabaseFlows.get(flowId);
+    if (!flow) {
+      return reply.status(400).send({ error: 'OAuth sign-in flow expired. Start again from ChatGPT.' });
+    }
+    pendingSupabaseFlows.delete(flowId);
+    clearCookie(reply, SUPABASE_FLOW_COOKIE);
+
+    if (request.query.error) {
+      return reply.status(400).send({ error: request.query.error_description || request.query.error });
+    }
+
+    if (!request.query.code) {
+      return reply.status(400).send({ error: 'Missing OAuth code from Supabase callback.' });
+    }
+
+    try {
+      const sessionResponse = await exchangeSupabasePkceCode(request.query.code, flow.codeVerifier);
+      const fallbackUser = await resolveUserFromSupabaseAccessToken(sessionResponse.access_token);
+      const session = createMcpOAuthSession({
+        accessToken: sessionResponse.access_token,
+        refreshToken: sessionResponse.refresh_token ?? null,
+        userId: sessionResponse.user?.id || fallbackUser.id,
+        userEmail: sessionResponse.user?.email || fallbackUser.email || null,
+        expiresInSeconds: sessionResponse.expires_in
+      });
+      setMcpSessionCookie(reply, session.id);
+      return reply.redirect(flow.returnTo);
+    } catch (error) {
+      return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to complete Supabase sign-in.' });
+    }
+  };
+
+  const oauthTokenHandler = async (
+    request: FastifyRequest<{ Body: OAuthTokenBody }>,
+    reply: FastifyReply
+  ) => {
+    if (!hasSupabaseOAuthSupport()) {
+      return reply.status(503).send({ error: 'Supabase OAuth is not configured for MCP.' });
+    }
+
+    cleanupExpiredOAuthState();
+
+    const body = (request.body ?? {}) as OAuthTokenBody;
+    if (body.grant_type === 'authorization_code') {
+      const code = typeof body.code === 'string' ? body.code : '';
+      const redirectUri = typeof body.redirect_uri === 'string' ? body.redirect_uri : '';
+      const codeVerifier = typeof body.code_verifier === 'string' ? body.code_verifier : '';
+      const clientId = typeof body.client_id === 'string' ? body.client_id : '';
+
+      const record = mcpAuthorizationCodes.get(code);
+      if (!record) {
+        return reply.status(400).send({ error: 'Invalid authorization code' });
+      }
+      mcpAuthorizationCodes.delete(code);
+
+      if (record.expiresAt <= Date.now()) {
+        return reply.status(400).send({ error: 'Authorization code expired' });
+      }
+      if (redirectUri !== record.redirectUri) {
+        return reply.status(400).send({ error: 'redirect_uri does not match' });
+      }
+      if (clientId && clientId !== record.clientId) {
+        return reply.status(400).send({ error: 'client_id does not match' });
+      }
+      if (!codeVerifier) {
+        return reply.status(400).send({ error: 'code_verifier is required' });
+      }
+
+      const computed = sha256Base64Url(codeVerifier);
+      if (
+        computed.length !== record.codeChallenge.length ||
+        !timingSafeEqual(Buffer.from(computed), Buffer.from(record.codeChallenge))
+      ) {
+        return reply.status(400).send({ error: 'Invalid code_verifier' });
+      }
+
+      const session = mcpOAuthSessions.get(record.sessionId);
+      if (!session) {
+        return reply.status(400).send({ error: 'User session expired. Sign in again.' });
+      }
+
+      return reply.status(200).send({
+        access_token: session.accessToken,
+        token_type: 'Bearer',
+        expires_in: Math.max(0, Math.floor((session.expiresAt - Date.now()) / 1000)),
+        refresh_token: session.refreshToken,
+        scope: record.scope
+      });
+    }
+
+    if (body.grant_type === 'refresh_token') {
+      const refreshToken = typeof body.refresh_token === 'string' ? body.refresh_token : '';
+      if (!refreshToken) {
+        return reply.status(400).send({ error: 'refresh_token is required' });
+      }
+
+      try {
+        const refreshed = await refreshSupabaseAccessToken(refreshToken);
+        return reply.status(200).send({
+          access_token: refreshed.access_token,
+          token_type: 'Bearer',
+          expires_in: refreshed.expires_in ?? 3600,
+          refresh_token: refreshed.refresh_token ?? refreshToken
+        });
+      } catch (error) {
+        return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to refresh token' });
+      }
+    }
+
+    return reply.status(400).send({ error: 'Unsupported grant_type' });
   };
 
   const mcpPostHandler = async (request: FastifyRequest<{ Body: JsonRpcRequest }>, reply: FastifyReply) => {
-    if (!ensureAuthorized(request, reply)) {
+    if (!ensureMcpRequestAuthorized(request, reply)) {
       return;
     }
     let authContext: McpAuthContext;
     try {
       authContext = await resolveMcpAuthContext(request);
     } catch {
+      if (hasSupabaseOAuthSupport()) {
+        sendOAuthChallenge(reply);
+        return;
+      }
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
@@ -2916,6 +3559,10 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
   };
 
   fastify.get('/apps/manifest', manifestHandler);
+  fastify.get<{ Querystring: OAuthAuthorizeQuerystring }>('/oauth/authorize', oauthAuthorizeHandler);
+  fastify.get<{ Querystring: OAuthStartQuerystring }>('/oauth/login', oauthLoginHandler);
+  fastify.get<{ Querystring: OAuthCallbackQuerystring }>('/oauth/callback', oauthCallbackHandler);
+  fastify.post<{ Body: OAuthTokenBody }>('/oauth/token', oauthTokenHandler);
   fastify.get('/.well-known/oauth-protected-resource', oauthProtectedResourceHandler);
   fastify.get('/.well-known/oauth-protected-resource/mcp', oauthProtectedResourceHandler);
   fastify.get('/.well-known/oauth-authorization-server', oauthAuthorizationServerHandler);
