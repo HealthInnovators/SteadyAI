@@ -1064,6 +1064,18 @@ export default function HomePage() {
             </div>
           </section>
         </section>
+
+        <footer className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-white/70 bg-white/70 px-5 py-4 text-sm text-[#5f5145] shadow-[0_16px_50px_rgba(80,48,24,0.06)]">
+          <p>GoodHealth247 and SteadyAI use consent-based coaching, tracking, and community tools.</p>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="font-medium text-[#7a4b28] underline-offset-4 hover:underline">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="font-medium text-[#7a4b28] underline-offset-4 hover:underline">
+              Terms of Service
+            </Link>
+          </div>
+        </footer>
       </section>
 
       <CreatePostModal
