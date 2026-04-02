@@ -593,6 +593,44 @@ export default function HomePage() {
           </aside>
         </header>
 
+        <section className="rounded-[36px] border border-white/70 bg-white/80 p-6 shadow-[0_24px_80px_rgba(80,48,24,0.08)]">
+          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.25fr] lg:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7a4b28]">Product Walkthrough</p>
+              <h2 className="mt-4 text-3xl font-semibold leading-tight text-[#1d140d] sm:text-4xl">
+                See how SteadyAI works before you sign in
+              </h2>
+              <p className="mt-4 max-w-xl text-base leading-7 text-[#5f5145]">
+                This walkthrough shows the consumer-facing SteadyAI experience across coaching, workouts, nutrition,
+                tracking, and community so visitors can understand the flow before onboarding.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link
+                  href="https://youtu.be/uAxjl7DWTa8"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex rounded-full bg-[#1d140d] px-5 py-3 text-sm font-medium text-white"
+                >
+                  Watch on YouTube
+                </Link>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-[28px] border border-[#ead9ca] bg-[#fcf5ec] shadow-[0_18px_60px_rgba(80,48,24,0.08)]">
+              <div className="aspect-video">
+                <iframe
+                  className="h-full w-full"
+                  src="https://www.youtube.com/embed/uAxjl7DWTa8"
+                  title="SteadyAI walkthrough"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
           <AgentInteractionPanel embedded onIntentDetected={handleAssistantIntent} />
 
