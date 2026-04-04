@@ -44,6 +44,8 @@ The MCP server now supports:
 - `resources/list`
 - `resources/read`
 
+Widget resources are static HTML templates and can be read without user authentication. User-specific tool calls still require either the shared bearer token or OAuth when configured.
+
 For `steadyai.ask_agent`, `tools/list` includes:
 
 - `_meta.ui.resourceUri = ui://widget/steadyai-agent-card.html`
@@ -114,6 +116,23 @@ curl -X POST http://localhost:3000/api/apps/mcp \
         "userId":"<USER_UUID>",
         "prompt":"Create a low-impact workout for today."
       }
+    }
+  }'
+```
+
+Resolve current user context when an authenticated ChatGPT session is available:
+
+```bash
+curl -X POST http://localhost:3000/api/apps/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ACCESS_TOKEN_OR_SHARED_TOKEN>" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":7,
+    "method":"tools/call",
+    "params":{
+      "name":"steadyai.get_current_user_context",
+      "arguments":{}
     }
   }'
 ```

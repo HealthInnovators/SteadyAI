@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test:mcp": "node --import tsx --test test/apps-mcp.test.ts",
     "cache:exercise-media": "tsx src/scripts/cache-exercise-media.ts",
     "seed:exercise-media": "tsx src/scripts/seed-exercise-media.ts",
     "seed:store": "tsx src/scripts/seed-store-catalog.ts",

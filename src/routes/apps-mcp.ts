@@ -363,7 +363,7 @@ const TOOLS: ToolDescriptor[] = [
     name: 'steadyai.get_current_user_context',
     title: 'Get Current User Context',
     description:
-      'Returns current user context for tools/widgets. If userId is provided, validates it; otherwise resolves a recent onboarded user.',
+      'Returns current user context for tools/widgets. If userId is provided, validates it; otherwise uses the authenticated user when available.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -2881,7 +2881,7 @@ async function resolveUserContext(
   authenticatedUserId?: string | null
 ): Promise<{
   userId: string | null;
-  source: 'provided' | 'authenticated-token' | 'recent-onboarded' | 'recent-any' | 'none';
+  source: 'provided' | 'authenticated-token' | 'none';
 }> {
   const prisma = getPrismaClient();
   const requested = candidateUserId?.trim();
@@ -2894,6 +2894,8 @@ async function resolveUserContext(
     if (existing) {
       return { userId: existing.id, source: 'provided' };
     }
+
+    return { userId: null, source: 'none' };
   }
 
   if (authenticatedUserId) {
@@ -2904,23 +2906,6 @@ async function resolveUserContext(
     if (authUser) {
       return { userId: authUser.id, source: 'authenticated-token' };
     }
-  }
-
-  const onboarded = await prisma.user.findFirst({
-    where: { onboardingCompleted: true },
-    orderBy: { updatedAt: 'desc' },
-    select: { id: true }
-  });
-  if (onboarded) {
-    return { userId: onboarded.id, source: 'recent-onboarded' };
-  }
-
-  const recentAny = await prisma.user.findFirst({
-    orderBy: { updatedAt: 'desc' },
-    select: { id: true }
-  });
-  if (recentAny) {
-    return { userId: recentAny.id, source: 'recent-any' };
   }
 
   return { userId: null, source: 'none' };
@@ -3682,7 +3667,8 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
           protocolVersion: '2024-11-05',
           serverInfo: SERVER_INFO,
           capabilities: {
-            tools: {}
+            tools: {},
+            resources: {}
           }
         });
         return;
@@ -3696,21 +3682,6 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
       if (body.method === 'resources/list') {
         sendJsonRpcResult(reply, id, { resources: WIDGET_RESOURCES });
         return;
-      }
-
-      if (!ensureMcpRequestAuthorized(request, reply)) {
-        return;
-      }
-
-      let authContext: McpAuthContext;
-      try {
-        authContext = await resolveMcpAuthContext(request);
-      } catch {
-        if (hasSupabaseOAuthSupport()) {
-          sendOAuthChallenge(reply);
-          return;
-        }
-        return reply.status(401).send({ error: 'Unauthorized' });
       }
 
       if (body.method === 'resources/read') {
@@ -3745,17 +3716,32 @@ export async function appsMcpRoutes(fastify: FastifyInstance): Promise<void> {
                     ? 'Compact user summary card with key challenge, community, and purchase metrics.'
                     : uri === NUTRITION_WIDGET_TEMPLATE_URI
                       ? 'Interactive nutrition coaching card with macro totals, quick adjustment actions, and meal logging.'
-                    : uri === WORKOUT_WIDGET_TEMPLATE_URI
-                      ? "Personalized workout card showing today's exercises, demo links, and quick modify actions."
-                    : uri === EDUCATOR_WIDGET_TEMPLATE_URI
-                      ? 'Interactive educator card with citations and clarification action.'
-                      : 'Interactive SteadyAI coaching card with quick follow-up actions and fullscreen expansion.',
+                      : uri === WORKOUT_WIDGET_TEMPLATE_URI
+                        ? "Personalized workout card showing today's exercises, demo links, and quick modify actions."
+                        : uri === EDUCATOR_WIDGET_TEMPLATE_URI
+                          ? 'Interactive educator card with citations and clarification action.'
+                          : 'Interactive SteadyAI coaching card with quick follow-up actions and fullscreen expansion.',
                 'openai/widgetPrefersBorder': true
               }
             }
           ]
         });
         return;
+      }
+
+      if (!ensureMcpRequestAuthorized(request, reply)) {
+        return;
+      }
+
+      let authContext: McpAuthContext;
+      try {
+        authContext = await resolveMcpAuthContext(request);
+      } catch {
+        if (hasSupabaseOAuthSupport()) {
+          sendOAuthChallenge(reply);
+          return;
+        }
+        return reply.status(401).send({ error: 'Unauthorized' });
       }
 
       if (body.method === 'tools/call') {

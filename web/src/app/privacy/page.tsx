@@ -1,61 +1,180 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
-const sections = [
+export const metadata: Metadata = {
+  title: 'Privacy Policy | Steady AI',
+  description:
+    'Privacy Policy for GoodHealth247 and Steady AI covering collected data, purposes, recipients, retention, and user controls.'
+};
+
+const policySections: Array<{
+  title: string;
+  body?: string;
+  bullets?: string[];
+}> = [
   {
-    title: 'What We Collect',
+    title: 'Overview',
     body:
-      'GoodHealth247 and SteadyAI collect the account details, coaching inputs, workout logs, nutrition logs, and community content you choose to provide. If you enable optional tracking features, we may also collect device-level context such as health summary sync, location, motion, notification consent state, and related activity metadata.'
+      'This Privacy Policy explains how GoodHealth247 and Steady AI collect, use, disclose, retain, and give users control over data processed through the website, mobile experiences, backend APIs, and connected ChatGPT integration.'
+  },
+  {
+    title: 'Data We Collect',
+    bullets: [
+      'Account and identity data: email address, username, authentication identifiers, and session tokens used to sign in and keep an account active.',
+      'Onboarding and profile data: primary goal, experience level, dietary preferences, time availability, onboarding completion status, and related profile settings.',
+      'Coaching inputs and outputs: prompts entered into coaching tools, meal descriptions, workout requests, educator questions, generated plans, summaries, drafts, and follow-up actions.',
+      'Workout and activity data: workout plans, completed exercises, session duration, feedback, workout preferences, challenge participation, check-in status, and workout history summaries.',
+      'Nutrition data: meal text, analyzed food items, calories, macros, timestamps, optional uploaded nutrition images, and nutrition logging history.',
+      'Community data: posts, replies, reactions, suggested post drafts, peer outreach suggestions, and moderation-relevant context needed to operate community features.',
+      'Reports and engagement data: check-in counts, adherence rates, community engagement counts, report window metrics, and similar progress summaries.',
+      'Store and transaction-related data: purchase history, purchased product identifiers, coach feedback requests, and recommendation inputs used to show optional offers.',
+      'Notification and reminder data: notification preferences, timezone, reminder schedule settings, cooldown settings, delivery logs, and reply-notification events.',
+      'Device, browser, and app context: timezone, language, platform, viewport, online status, connection type, likely mobile status, and other device snapshot fields shown in the product before or when the user asks to capture them.',
+      'Optional location, motion, and notification-permission data: current location, motion permission status, and notification permission status when the user explicitly enables or requests those features.',
+      'Optional health summary data: health summary sync inputs such as steps, activity minutes, date, source app, connection identifiers, and workout summary records when a user explicitly enables health sync or saves a workout session.',
+      'Technical and security data: request metadata, bearer-token use, OAuth flow state, cookie/session state, and service logs needed to authenticate requests, prevent misuse, and maintain service reliability.'
+    ]
   },
   {
     title: 'How We Use Data',
-    body:
-      'We use your data to deliver personalized coaching, generate workout and nutrition guidance, save progress, power reports, and support community participation. Data is used to respond to the actions you explicitly request inside the app and connected ChatGPT experience.'
+    bullets: [
+      'To create and manage accounts, authenticate users, and keep sessions active across web, mobile, and connected ChatGPT experiences.',
+      'To personalize coaching responses, including habit guidance, meal planning, workout coaching, educator help, and user summary generation.',
+      'To save workouts, nutrition logs, community posts, check-ins, reports, and preferences at the user’s direction.',
+      'To generate reports, adherence summaries, streaks, trend views, and progress insights.',
+      'To deliver optional notifications and reminders that the user has chosen to receive.',
+      'To operate community features, including displaying posts, reactions, replies, and check-in content to relevant users.',
+      'To provide store recommendations, product suggestions, and coach support flows tied to user activity and profile context.',
+      'To support connected ChatGPT tool use, including processing tool inputs and returning tool outputs and UI widgets requested by the user.',
+      'To secure the service, troubleshoot issues, audit misuse, and maintain performance and reliability.'
+    ]
   },
   {
-    title: 'Consent And Control',
-    body:
-      'Health sync, browser/device signals, and similar sensitive inputs are intended to be consent-based features. You can choose whether to enable those capabilities, and your access to core app features does not require every optional permission.'
+    title: 'How ChatGPT-Connected Tools Use Data',
+    bullets: [
+      'When a user connects Steady AI to ChatGPT, tool inputs provided through ChatGPT are sent to Steady AI so the requested tool can run.',
+      'Tool inputs may include profile data, coaching prompts, meal text, workout session details, community draft content, notification preferences, or an authenticated user identifier depending on the tool used.',
+      'Tool outputs may include generated guidance, workout cards, nutrition summaries, user summaries, check-in drafts, and other structured results returned to ChatGPT for display to the user.',
+      'Static widget resources used to render cards in ChatGPT do not by themselves contain personal data, but personalized tool calls can return user-linked content when the user is authenticated or provides a user identifier.',
+      'If a tool performs a write action, such as logging nutrition, saving a workout session, updating workout preferences, or creating a community check-in post, the relevant submitted data is stored in the user account so the product can reflect that action later.'
+    ]
   },
   {
-    title: 'Third-Party Services',
-    body:
-      'The product may use infrastructure and AI providers such as Supabase for authentication and storage, and model providers for generating coaching responses. When those providers are used, data is processed only to support the requested product functionality.'
+    title: 'Disclosures And Recipients',
+    bullets: [
+      'Service providers and infrastructure vendors: we use hosted infrastructure and software providers to support authentication, databases, storage, hosting, and delivery of the application.',
+      'Supabase and similar backend services may process account data, authentication tokens, database records, and stored content to provide sign-in, storage, and application functionality.',
+      'AI model providers may process prompts and related context needed to generate requested coaching, nutrition, education, and community guidance outputs.',
+      'Community recipients: when a user publishes a post, check-in, or reaction, that content is disclosed to other users who can access the relevant community surface.',
+      'Legal or safety disclosures: we may disclose information when reasonably necessary to comply with law, enforce terms, protect users, or respond to valid legal process.',
+      'Business transfers: data may be transferred as part of a merger, acquisition, financing, or sale of assets, subject to applicable law.'
+    ]
   },
   {
-    title: 'Storage And Security',
-    body:
-      'We store application data in managed infrastructure and limit access to operational needs. No system can promise absolute security, but we aim to minimize data exposure and use standard access controls for hosted services.'
+    title: 'Data Retention',
+    bullets: [
+      'Account and profile records are retained while the account remains active and for a reasonable period afterward to support security, fraud prevention, and legal compliance.',
+      'Coaching logs, workout data, nutrition logs, reports, challenge participation, store history, and community content are retained until deleted by the user, removed by the service, or no longer needed for product and legal purposes.',
+      'Notification logs, security logs, and operational records may be kept for a limited period needed for reliability, troubleshooting, abuse prevention, and audit purposes.',
+      'Temporary OAuth codes, sessions, and short-lived connection state are retained only for the duration needed to complete authentication and maintain secure access.',
+      'Where deletion is requested, backups and residual copies may persist for a limited period before they are overwritten in the ordinary course of operations.'
+    ]
   },
   {
-    title: 'Your Choices',
+    title: 'User Controls And Choices',
+    bullets: [
+      'Users can choose whether to enable optional health, location, motion, and notification-related features.',
+      'Users can choose whether to connect Steady AI to ChatGPT and whether to authenticate a ChatGPT session against their account.',
+      'Users can edit profile and onboarding information through product flows when available.',
+      'Users can choose whether to create community posts, reactions, and check-ins; those features are not automatic.',
+      'Users can change notification preferences and reminder schedules.',
+      'Users can request account deletion or data deletion, subject to legal, security, and operational retention requirements.'
+    ]
+  },
+  {
+    title: 'Sensitive And Health-Related Data',
+    bullets: [
+      'Steady AI is designed so health summary sync and related device or sensor features are optional and user-initiated.',
+      'When health-related data is used, it is used to provide the specific tracking, report, or coaching function requested by the user.',
+      'Certain MCP summary flows are designed to avoid including raw health data where not needed and instead use reduced or summary-level inputs.'
+    ]
+  },
+  {
+    title: 'Cookies, Sessions, And Authentication',
+    bullets: [
+      'We use cookies, bearer tokens, session identifiers, and related authentication state to keep users signed in, support secure OAuth flows, and connect ChatGPT sessions to the correct account when authorized.',
+      'These mechanisms are used for security and product operation and are not a promise that tracking technologies are limited only to advertising or analytics contexts.'
+    ]
+  },
+  {
+    title: 'Security',
     body:
-      'You can request updates to your account information, stop using optional tracking features, or ask for account/data deletion subject to operational and legal requirements. Contact the GoodHealth247 team for privacy-related requests.'
+      'We use administrative, technical, and organizational measures intended to protect data from unauthorized access, alteration, disclosure, or destruction. No method of storage or transmission is completely secure, so we cannot guarantee absolute security.'
+  },
+  {
+    title: 'Children',
+    body:
+      'The service is not intended for children who are not legally permitted to use it under applicable law. If you believe a child provided personal data without proper authorization, contact the GoodHealth247 team so the issue can be reviewed.'
+  },
+  {
+    title: 'Changes To This Policy',
+    body:
+      'We may update this Privacy Policy as the product changes. When we do, we will update the date on this page and publish the revised policy here.'
   }
 ];
 
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,240,220,0.95),_rgba(246,236,226,0.88)_38%,_rgba(244,239,232,1)_100%)] px-4 py-10 text-[#1d140d] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-5xl">
         <div className="rounded-[36px] border border-white/70 bg-white/80 p-6 shadow-[0_24px_80px_rgba(80,48,24,0.08)] backdrop-blur sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#7a4b28]">GoodHealth247</p>
           <h1 className="mt-4 text-4xl font-semibold sm:text-5xl">Privacy Policy</h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-[#5f5145]">
-            This page explains, at a high level, how GoodHealth247 and SteadyAI handle account, coaching, tracking, and community data across the website and connected ChatGPT experience.
+          <p className="mt-4 max-w-4xl text-base leading-7 text-[#5f5145]">
+            This Privacy Policy applies to the Steady AI website, application features, backend APIs, and connected
+            ChatGPT experience. It is intended to clearly describe the categories of data processed, the purposes for
+            that processing, who may receive the data, how long data may be retained, and what controls users have.
           </p>
-          <p className="mt-3 text-sm text-[#77685d]">Last updated: March 16, 2026</p>
+          <p className="mt-3 text-sm text-[#77685d]">Last updated: April 4, 2026</p>
+
+          <div className="mt-8 rounded-[28px] border border-[#ead9ca] bg-[#fffaf5] p-5">
+            <h2 className="text-lg font-semibold">Quick Summary</h2>
+            <p className="mt-2 text-sm leading-7 text-[#5f5145]">
+              Steady AI processes account data, coaching inputs, fitness and nutrition logs, community content, reports,
+              optional device and health data, and ChatGPT-connected tool inputs and outputs in order to operate the
+              service requested by the user. Optional permissions and connected-account features are user-controlled.
+            </p>
+          </div>
 
           <div className="mt-8 space-y-5">
-            {sections.map((section) => (
+            {policySections.map((section) => (
               <section key={section.title} className="rounded-[28px] border border-[#ead9ca] bg-[#fffaf5] p-5">
                 <h2 className="text-lg font-semibold">{section.title}</h2>
-                <p className="mt-2 text-sm leading-7 text-[#5f5145]">{section.body}</p>
+                {section.body ? <p className="mt-2 text-sm leading-7 text-[#5f5145]">{section.body}</p> : null}
+                {section.bullets ? (
+                  <ul className="mt-3 space-y-2 text-sm leading-7 text-[#5f5145]">
+                    {section.bullets.map((bullet) => (
+                      <li key={bullet} className="flex gap-3">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#7a4b28]" />
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </section>
             ))}
           </div>
 
+          <div className="mt-8 rounded-[28px] border border-[#ead9ca] bg-[#fcf5ec] p-5">
+            <h2 className="text-lg font-semibold">Privacy Requests</h2>
+            <p className="mt-2 text-sm leading-7 text-[#5f5145]">
+              Questions or requests related to privacy, access, correction, deletion, or optional feature controls can
+              be directed to the GoodHealth247 support team through the support channel provided with the service.
+            </p>
+          </div>
+
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#ead9ca] bg-[#fcf5ec] px-5 py-4">
-            <p className="text-sm text-[#5f5145]">Questions or requests about privacy can be directed to the GoodHealth247 support team.</p>
+            <p className="text-sm text-[#5f5145]">Reviewers and users should rely on this page as the current privacy disclosure for Steady AI.</p>
             <Link href="/" className="font-medium text-[#7a4b28] underline-offset-4 hover:underline">
               Back to homepage
             </Link>
