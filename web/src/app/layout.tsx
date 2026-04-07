@@ -5,7 +5,12 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Steady AI | Fitness, Nutrition, Community, and Reports',
-  description: 'Conversational fitness and nutrition coaching with tracking, reports, community engagement, and a store.'
+  description: 'Conversational fitness and nutrition coaching with tracking, reports, community engagement, and a store.',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg'
+  }
 };
 
 export default function RootLayout({
