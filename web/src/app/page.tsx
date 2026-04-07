@@ -516,6 +516,14 @@ export default function HomePage() {
               />
             </div>
 
+            <div className="mt-6 overflow-hidden rounded-[30px] border border-[#ead9ca] bg-[#fcf5ec] shadow-[0_18px_60px_rgba(80,48,24,0.08)]">
+              <img
+                src="/illustrations/coach-orbit.svg"
+                alt="SteadyAI product illustration showing coaching, workout, reporting, and tracking modules."
+                className="h-auto w-full"
+              />
+            </div>
+
             {!isAuthenticated ? (
               <div className="mt-6 rounded-[28px] border border-[#e8c8a4] bg-[#fff3e3] p-5">
                 <p className="text-sm text-[#7a4b28]">
@@ -664,6 +672,13 @@ export default function HomePage() {
               title="Interactive daily workout"
               description="A focused routine with quick logging so the assistant can use your response on the next turn."
             />
+            <div className="mt-5 overflow-hidden rounded-[28px] border border-[#ead9ca] bg-[#fcf5ec]">
+              <img
+                src="/illustrations/workout-flow.svg"
+                alt="SteadyAI workout illustration showing guided exercise flow and workout completion."
+                className="h-auto w-full"
+              />
+            </div>
             <div className="mt-5 rounded-[28px] bg-[#fcf5ec] p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -733,6 +748,13 @@ export default function HomePage() {
               title="Simple meal logging"
               description="Users can describe food naturally. The backend handles parsing and totals."
             />
+            <div className="mt-5 overflow-hidden rounded-[28px] border border-[#ead9ca] bg-[#fcf5ec]">
+              <img
+                src="/illustrations/nutrition-board.svg"
+                alt="SteadyAI nutrition illustration showing meal logging, macro tracking, and food insights."
+                className="h-auto w-full"
+              />
+            </div>
             <div className="mt-5 space-y-4">
               <textarea
                 value={nutritionInput}
@@ -982,6 +1004,13 @@ export default function HomePage() {
                 title="Engagement and accountability"
                 description="A social layer for wins, questions, check-ins, and replies."
               />
+              <div className="mt-5 overflow-hidden rounded-[28px] border border-[#ead9ca] bg-[#fcf5ec]">
+                <img
+                  src="/illustrations/community-pulse.svg"
+                  alt="SteadyAI community illustration showing posts, peers, and accountability interactions."
+                  className="h-auto w-full"
+                />
+              </div>
               <div className="mt-5 flex flex-wrap gap-3">
                 <button
                   type="button"
