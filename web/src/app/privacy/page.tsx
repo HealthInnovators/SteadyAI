@@ -123,6 +123,92 @@ const policySections: Array<{
   }
 ];
 
+const disclosureHighlights = [
+  {
+    label: 'Collected data',
+    value: 'Account, profile, coaching prompts, nutrition logs, workout/session data, community content, device context, optional health and permission data.'
+  },
+  {
+    label: 'Purposes',
+    value: 'Authentication, personalized coaching, logging, reports, community features, store/support flows, and connected ChatGPT tool responses.'
+  },
+  {
+    label: 'Recipients',
+    value: 'Infrastructure vendors, authentication/storage providers, AI model providers, community viewers when you publish content, and legal/safety recipients when required.'
+  },
+  {
+    label: 'Retention',
+    value: 'Short-lived auth state is temporary; account, content, and activity records are retained while needed for product, security, and legal purposes.'
+  },
+  {
+    label: 'User controls',
+    value: 'Users control optional health, location, motion, notification, and ChatGPT connection features and may request access, correction, or deletion.'
+  }
+] as const;
+
+const toolDisclosureRows = [
+  {
+    tool: 'steadyai.ask_agent',
+    inputs: 'Coaching prompt and selected coaching mode such as habit reset, meal planning, or community guidance.',
+    outputs: 'Generated coaching text and widget content.',
+    notes: 'Prompt content may be processed by configured AI model providers to generate the requested response.'
+  },
+  {
+    tool: 'steadyai.educator_help',
+    inputs: 'User question, optional thread context, and optional community-post context.',
+    outputs: 'Educational explanation or myth-correction response with educator widget content.',
+    notes: 'Context is used only to answer the requested educational question.'
+  },
+  {
+    tool: 'steadyai.workout_coach',
+    inputs: 'Workout prompt plus authenticated user context, workout preferences, and recent workout summary when available.',
+    outputs: 'Structured workout plan, exercise media/demo links, and workout widget data.',
+    notes: 'If a signed-in user exists, recent workout history and preferences may be read to personalize the plan.'
+  },
+  {
+    tool: 'steadyai.log_workout_session',
+    inputs: 'User id or authenticated user, session id, completed exercise counts, duration, optional feedback, and optional workout plan payload.',
+    outputs: 'Saved workout-session confirmation and record identifiers.',
+    notes: 'This tool writes workout summary data to the user account.'
+  },
+  {
+    tool: 'steadyai.get_current_user_context',
+    inputs: 'Authenticated session state or provided user id.',
+    outputs: 'Resolved user id and context source.',
+    notes: 'This tool is used to determine which account later tool actions should reference.'
+  },
+  {
+    tool: 'steadyai.generate_checkin_draft',
+    inputs: 'Workout totals, completion counts, feedback, and optional weekly insight.',
+    outputs: 'Draft CHECK_IN text and structured draft content.',
+    notes: 'This tool does not publish community content by itself.'
+  },
+  {
+    tool: 'steadyai.create_checkin_post',
+    inputs: 'Authenticated user or provided user id plus check-in post content.',
+    outputs: 'Created post id, timestamp, and stored post content summary.',
+    notes: 'Published post content becomes visible to other users who can access the relevant community surface.'
+  },
+  {
+    tool: 'steadyai.update_workout_preferences',
+    inputs: 'Authenticated user or provided user id plus preference values such as preferred duration, impact, equipment, and auto-post settings.',
+    outputs: 'Saved preference confirmation and updated preference values.',
+    notes: 'This tool writes user preference data.'
+  },
+  {
+    tool: 'steadyai.nutrition_coach',
+    inputs: 'Meal text, optional nutrition action, and authenticated user context when available.',
+    outputs: 'Estimated calories/macros, itemized analysis, tips, and nutrition widget data.',
+    notes: 'Meal text may be processed by configured AI/nutrition estimation providers to return the requested estimate.'
+  },
+  {
+    tool: 'steadyai.log_nutrition_intake',
+    inputs: 'Authenticated user or provided user id, meal text, and optional consumed-at timestamp.',
+    outputs: 'Saved nutrition entry id, totals, and updated same-day summary.',
+    notes: 'This tool writes nutrition-log data to the user account.'
+  }
+] as const;
+
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(255,240,220,0.95),_rgba(246,236,226,0.88)_38%,_rgba(244,239,232,1)_100%)] px-4 py-10 text-[#1d140d] sm:px-6 lg:px-8">
@@ -145,6 +231,47 @@ export default function PrivacyPage() {
               service requested by the user. Optional permissions and connected-account features are user-controlled.
             </p>
           </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {disclosureHighlights.map((item) => (
+              <section key={item.label} className="rounded-[24px] border border-[#ead9ca] bg-[#fffaf5] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7a4b28]">{item.label}</p>
+                <p className="mt-2 text-sm leading-6 text-[#5f5145]">{item.value}</p>
+              </section>
+            ))}
+          </div>
+
+          <section className="mt-8 rounded-[28px] border border-[#ead9ca] bg-[#fffaf5] p-5">
+            <h2 className="text-lg font-semibold">ChatGPT Tool Data Disclosures</h2>
+            <p className="mt-2 text-sm leading-7 text-[#5f5145]">
+              The table below summarizes the major Steady AI MCP tools, the categories of data they use, the outputs
+              they return, and whether those flows can write account or community data.
+            </p>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm text-[#5f5145]">
+                <thead>
+                  <tr className="text-xs uppercase tracking-[0.18em] text-[#7a4b28]">
+                    <th className="px-3">Tool</th>
+                    <th className="px-3">Inputs Used</th>
+                    <th className="px-3">Outputs Returned</th>
+                    <th className="px-3">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {toolDisclosureRows.map((row) => (
+                    <tr key={row.tool} className="align-top">
+                      <td className="rounded-l-[18px] border border-[#ead9ca] bg-[#fcf5ec] px-3 py-3 font-semibold text-[#1d140d]">
+                        {row.tool}
+                      </td>
+                      <td className="border-y border-[#ead9ca] bg-[#fcf5ec] px-3 py-3">{row.inputs}</td>
+                      <td className="border-y border-[#ead9ca] bg-[#fcf5ec] px-3 py-3">{row.outputs}</td>
+                      <td className="rounded-r-[18px] border border-[#ead9ca] bg-[#fcf5ec] px-3 py-3">{row.notes}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
           <div className="mt-8 space-y-5">
             {policySections.map((section) => (
