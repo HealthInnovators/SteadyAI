@@ -2,7 +2,7 @@ import { NutritionInputType } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { authenticateRequest } from '../middleware/auth';
-import { addNutritionImageToEntry, ingestNutrition } from '../services/nutrition.service';
+import { addNutritionImageToEntry, ingestNutrition, getRecentNutritionEntries } from '../services/nutrition.service';
 
 interface NutritionIngestBody {
   inputType: NutritionInputType;
@@ -27,13 +27,9 @@ export async function nutritionRoutes(fastify: FastifyInstance): Promise<void> {
     { preHandler: authenticateRequest },
     async (request, reply) => {
       const { inputType, rawText, consumedAt, imageUrls, items } = request.body;
-      const userId = request.userId;
+      const userId = request.userId!;
 
-      if (!userId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
-
-      if (!inputType || !Object.values(NutritionInputType).includes(inputType)) {
+      if (!Object.values(NutritionInputType).includes(inputType)) {
         return reply.status(400).send({ error: 'Valid inputType is required' });
       }
 
@@ -70,12 +66,8 @@ export async function nutritionRoutes(fastify: FastifyInstance): Promise<void> {
     '/nutrition/:entryId/images',
     { preHandler: authenticateRequest },
     async (request, reply) => {
-      const userId = request.userId;
+      const userId = request.userId!;
       const { entryId } = request.params;
-
-      if (!userId) {
-        return reply.status(401).send({ error: 'Unauthorized' });
-      }
 
       try {
         const file = await request.file();
@@ -107,6 +99,33 @@ export async function nutritionRoutes(fastify: FastifyInstance): Promise<void> {
       } catch (error) {
         request.log.error(error);
         return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to upload nutrition image' });
+      }
+    }
+  );
+
+  fastify.get<{ Querystring: { limit?: string } }>(
+    '/nutrition/entries',
+    { 
+      preHandler: [authenticateRequest],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply) => {
+      const userId = request.userId!;
+      const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
+
+      try {
+        const entries = await getRecentNutritionEntries(userId, limit);
+        return entries;
+      } catch (error) {
+        request.log.error(error);
+        return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to fetch nutrition entries' });
       }
     }
   );

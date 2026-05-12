@@ -293,25 +293,48 @@ function asMcpSummary(input: unknown): McpUserSummary {
   };
 }
 
-export async function generateThreeDayMealPlan(summary: McpUserSummary): Promise<MealPlanningResult> {
+async function generateThreeDayMealPlan(summary: McpUserSummary): Promise<MealPlanningResult> {
   const llm = createLlmClientFromEnv();
   const prompt = buildMealPlanningPrompt(summary);
   const fallback = buildDeterministicFallback(summary);
+  const systemPrompt =
+    'Return strict JSON only. Do not include medical claims. Keep rationale practical and lifestyle-oriented.';
 
   try {
     const response = await llm.generateText({
       prompt,
-      systemPrompt:
-        'Return strict JSON only. Do not include medical claims. Keep rationale practical and lifestyle-oriented.',
+      systemPrompt,
       maxOutputTokens: 1600,
       temperature: 0.1
     });
 
-    const parsed = parseJsonObject(response.text);
+    const parsed = parseJsonObject(response);
     return normalizeResult(parsed, fallback);
   } catch {
     return fallback;
   }
+}
+
+export async function runMealPlanner(userId: string, prompt: string): Promise<MealPlanningResult> {
+  // This is a placeholder to align with the new structure.
+  // In a real implementation, you'd fetch the user's summary here.
+  const summary: McpUserSummary = {
+    schemaVersion: 'v1',
+    generatedAt: new Date().toISOString(),
+    userId,
+    profile: {
+      onboardingCompleted: true,
+      primaryGoal: 'FITNESS',
+      experienceLevel: 'BEGINNER',
+      dietaryPreferences: [],
+      timeAvailability: '30-45min',
+    },
+    challengeActivity: { activeChallengeId: null, participationStatus: null, checkIns: { total: 0, completed: 0, partial: 0, skipped: 0, completionRate: 0, lastCheckInAt: null } },
+    communityEngagement: { postsCount: 0, reactionsGivenCount: 0, reactionsReceivedCount: 0, lastPostAt: null },
+    purchaseHistory: { totalPurchases: 0, totalSpentCents: 0, averageOrderValueCents: 0, lastPurchaseAt: null, topProductIds: [] },
+    safety: { piiIncluded: false, rawHealthDataIncluded: false }
+  };
+  return generateThreeDayMealPlan(summary);
 }
 
 export async function generateThreeDayMealPlanFromJson(userSummaryJson: string | Record<string, unknown>): Promise<MealPlanningResult> {

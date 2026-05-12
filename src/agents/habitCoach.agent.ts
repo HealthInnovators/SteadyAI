@@ -131,19 +131,17 @@ function buildDeterministicFallback(summary: ChallengeParticipationSummary): Hab
 }
 
 function normalizeResult(raw: Record<string, unknown>, fallback: HabitCoachResult): HabitCoachResult {
-  const habitAdjustmentRaw = asObject(raw.habitAdjustment);
-  const difficultyRaw = compactText(habitAdjustmentRaw.difficulty, fallback.habitAdjustment.difficulty);
-  const difficulty: HabitDifficulty = difficultyRaw === 'moderate' ? 'moderate' : 'easy';
+  const adjustment = asObject(raw.habitAdjustment);
 
   return {
     schemaVersion: HABIT_COACH_SCHEMA_VERSION,
     weeklyReflection: sanitizeTone(compactText(raw.weeklyReflection, fallback.weeklyReflection)),
     habitAdjustment: {
-      title: sanitizeTone(compactText(habitAdjustmentRaw.title, fallback.habitAdjustment.title)),
-      action: sanitizeTone(compactText(habitAdjustmentRaw.action, fallback.habitAdjustment.action)),
-      whyItHelps: sanitizeTone(compactText(habitAdjustmentRaw.whyItHelps, fallback.habitAdjustment.whyItHelps)),
-      difficulty,
-      nextCheckInDays: clampDays(habitAdjustmentRaw.nextCheckInDays)
+      title: compactText(adjustment.title, fallback.habitAdjustment.title),
+      action: compactText(adjustment.action, fallback.habitAdjustment.action),
+      whyItHelps: compactText(adjustment.whyItHelps, fallback.habitAdjustment.whyItHelps),
+      difficulty: adjustment.difficulty === 'moderate' ? 'moderate' : 'easy',
+      nextCheckInDays: clampDays(adjustment.nextCheckInDays)
     },
     toneCheck: {
       supportive: true,
@@ -153,21 +151,39 @@ function normalizeResult(raw: Record<string, unknown>, fallback: HabitCoachResul
   };
 }
 
-export async function generateWeeklyHabitReflection(summary: ChallengeParticipationSummary): Promise<HabitCoachResult> {
+export async function runHabitCoach(userId: string, prompt: string): Promise<HabitCoachResult> {
+  // This is a placeholder to align with the new structure.
+  // In a real implementation, you'd fetch the user's summary here.
+  const summary: ChallengeParticipationSummary = {
+    challengeId: 'dummy-challenge',
+    participationStatus: 'JOINED',
+    periodDays: 7,
+    totalCheckIns: 5,
+    completedCheckIns: 3,
+    partialCheckIns: 1,
+    skippedCheckIns: 1,
+    completionRate: 0.6,
+    lastCheckInAt: new Date().toISOString(),
+  };
+  return generateWeeklyHabitReflection(summary);
+}
+
+async function generateWeeklyHabitReflection(summary: ChallengeParticipationSummary): Promise<HabitCoachResult> {
   const llm = createLlmClientFromEnv();
   const prompt = buildHabitCoachPrompt(summary);
   const fallback = buildDeterministicFallback(summary);
+  const systemPrompt =
+    'Return strict JSON only. Use supportive, non-judgmental coaching language. Do not provide medical advice.';
 
   try {
     const response = await llm.generateText({
       prompt,
-      systemPrompt:
-        'Return strict JSON. Use supportive, non-judgmental language only. Do not use shaming terms. Do not include medical advice.',
+      systemPrompt,
       temperature: 0.1,
       maxOutputTokens: 700
     });
 
-    const parsed = parseJsonObject(response.text);
+    const parsed = parseJsonObject(response);
     return normalizeResult(parsed, fallback);
   } catch {
     return fallback;

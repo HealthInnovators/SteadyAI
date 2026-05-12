@@ -212,25 +212,30 @@ function normalizeResult(
   };
 }
 
-export async function generateCommunityGuide(input: McpCommunityEngagementSummaryInput): Promise<CommunityGuideResult> {
+async function generateWeeklyCommunityInsights(input: McpCommunityEngagementSummaryInput): Promise<CommunityGuideResult> {
   const llm = createLlmClientFromEnv();
   const prompt = buildCommunityGuidePrompt(input);
   const fallback = buildDeterministicFallback(input);
+  const systemPrompt =
+    'Return strict JSON only. Do not rank users. Do not use popularity signals. Keep suggestions encouraging and neutral.';
 
   try {
     const response = await llm.generateText({
       prompt,
-      systemPrompt:
-        'Return strict JSON only. Do not rank users. Do not use popularity signals. Keep suggestions encouraging and neutral.',
+      systemPrompt,
       temperature: 0.1,
       maxOutputTokens: 900
     });
 
-    const parsed = parseJsonObject(response.text);
+    const parsed = parseJsonObject(response);
     return normalizeResult(parsed, input, fallback);
   } catch {
     return fallback;
   }
+}
+
+export async function runCommunityGuide(input: McpCommunityEngagementSummaryInput): Promise<CommunityGuideResult> {
+  return generateWeeklyCommunityInsights(input);
 }
 
 export async function generateCommunityGuideFromJson(
@@ -238,5 +243,5 @@ export async function generateCommunityGuideFromJson(
 ): Promise<CommunityGuideResult> {
   const parsed = typeof summaryJson === 'string' ? parseJsonObject(summaryJson) : asObject(summaryJson);
   const normalizedInput = normalizeInput(parsed);
-  return generateCommunityGuide(normalizedInput);
+  return runCommunityGuide(normalizedInput);
 }

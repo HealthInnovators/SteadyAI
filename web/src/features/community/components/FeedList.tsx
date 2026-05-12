@@ -1,64 +1,51 @@
 'use client';
 
+import { useCommunity } from '../CommunityProvider';
 import type { CommunityPost, ReactionType } from '../types';
 
-const REACTION_TYPES: ReactionType[] = ['LIKE', 'CELEBRATE', 'SUPPORT'];
+function PostCard({ post, currentUserId }: { post: CommunityPost; currentUserId: string | null; }) {
+    const { toggleReaction } = useCommunity();
+    const userReaction = post.reactions.find(r => r.userId === currentUserId);
 
-interface FeedListProps {
-  posts: CommunityPost[];
-  currentUserId: string | null;
-  onReact: (postId: string, type: ReactionType) => void;
+    return (
+        <div className="rounded-2xl border border-white/70 bg-white/50 p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-gray-200" />
+                <div>
+                    <p className="text-sm font-semibold">{post.author.displayName || post.author.username}</p>
+                    <p className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleString()}</p>
+                </div>
+            </div>
+            <p className="mt-4 text-sm text-[#4e4035]">{post.content}</p>
+            <div className="mt-4 flex gap-2">
+                {(['LIKE', 'CELEBRATE', 'SUPPORT'] as ReactionType[]).map(type => (
+                    <button 
+                        key={type}
+                        onClick={() => toggleReaction(post.id, type)}
+                        className={`px-3 py-1 text-xs rounded-full flex items-center gap-1 ${userReaction?.type === type ? 'bg-blue-100 border-blue-200' : 'bg-white/80 border'}`}
+                    >
+                        <span>{type.charAt(0) + type.slice(1).toLowerCase()}</span>
+                        <span className="text-gray-500">{post.reactions.filter(r => r.type === type).length}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
 }
 
-export function FeedList({ posts, currentUserId, onReact }: FeedListProps) {
-  if (posts.length === 0) {
-    return <p className="rounded-lg border border-dashed border-gray-300 p-6 text-sm text-gray-600">No posts yet.</p>;
-  }
 
-  return (
-    <ul className="space-y-4">
-      {posts.map((post) => {
-        const myReaction = post.reactions.find((reaction) => reaction.userId === currentUserId)?.type;
-        const reactionCounts = post.reactions.reduce<Record<ReactionType, number>>(
-          (acc, reaction) => {
-            acc[reaction.type] += 1;
-            return acc;
-          },
-          { LIKE: 0, CELEBRATE: 0, SUPPORT: 0 }
-        );
+export function FeedList() {
+    const { posts, isLoading, currentUserId } = useCommunity();
 
-        return (
-          <li key={post.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-medium">{post.author.displayName || post.author.username}</p>
-              <p className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleString()}</p>
-            </div>
-
-            <p className="mb-1 text-xs font-medium tracking-wide text-gray-500">{post.type || 'UPDATE'}</p>
-            <p className="text-sm text-gray-900">{post.content}</p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {REACTION_TYPES.map((type) => {
-                const selected = myReaction === type;
-                const count = reactionCounts[type];
-
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => onReact(post.id, type)}
-                    className={`rounded-md border px-3 py-1 text-xs ${
-                      selected ? 'border-black bg-black text-white' : 'border-gray-300 bg-white text-gray-700'
-                    }`}
-                  >
-                    {type} {count > 0 ? count : ''}
-                  </button>
-                );
-              })}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
+    if (isLoading) {
+        return <p className="text-sm text-gray-600">Loading feed...</p>;
+    }
+    
+    return (
+        <div className="space-y-4">
+            {posts.map((post: CommunityPost) => (
+                <PostCard key={post.id} post={post} currentUserId={currentUserId} />
+            ))}
+        </div>
+    );
 }

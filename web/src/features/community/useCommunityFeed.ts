@@ -32,6 +32,8 @@ const initialState: CommunityFeedState = {
   error: null
 };
 
+export type UseCommunityFeedReturn = ReturnType<typeof useCommunityFeed>;
+
 export function useCommunityFeed({ token, enabled }: UseCommunityFeedOptions) {
   const [state, setState] = useState<CommunityFeedState>(initialState);
   const currentUserId = useMemo(() => extractUserId(token), [token]);

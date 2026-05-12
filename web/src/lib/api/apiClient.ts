@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from '@/config/env';
-import type { ApiClientOptions, ApiErrorPayload, BodyRequestOptions, QueryValue, RequestOptions } from './types';
+import type { ApiClientOptions, ApiErrorPayload, BodyRequestOptions, QueryValue, RequestOptions, PlatformContext, WorkoutPreferences, WorkoutHistorySummary, ExerciseMedia, NutritionEntry, ReportsOverview } from './types';
 
 export class ApiClientError extends Error {
   readonly status: number;
@@ -42,6 +42,30 @@ export class ApiClient {
 
   delete<T>(path: string, options: RequestOptions = {}): Promise<T> {
     return this.request<T>('DELETE', path, options);
+  }
+
+  getPlatformContext(): Promise<PlatformContext> {
+    return this.get<PlatformContext>('/api/platform/context');
+  }
+
+  getWorkoutPreferences(): Promise<WorkoutPreferences | null> {
+    return this.get<WorkoutPreferences>('/api/workouts/preferences');
+  }
+
+  getWorkoutHistory(): Promise<WorkoutHistorySummary> {
+    return this.get<WorkoutHistorySummary>('/api/workouts/history');
+  }
+
+  getExerciseMedia(): Promise<ExerciseMedia[]> {
+    return this.get<ExerciseMedia[]>('/api/workouts/exercise-media');
+  }
+
+  getNutritionEntries(limit = 10): Promise<NutritionEntry[]> {
+    return this.get<NutritionEntry[]>('/api/nutrition/entries', { query: { limit } });
+  }
+
+  getReportsOverview(days = 7): Promise<ReportsOverview> {
+    return this.get<ReportsOverview>('/api/reports/overview', { query: { days } });
   }
 
   private async request<T>(
@@ -125,7 +149,7 @@ export class ApiClient {
       return new ApiClientError(message, response.status, payload);
     }
 
-const textPayload = await response.text();
+    const textPayload = await response.text();
     return new ApiClientError(textPayload || `Request failed with status ${response.status}`, response.status, textPayload || undefined);
   }
 }

@@ -91,6 +91,12 @@ enum SyncBatchStatus {
   FAILED
 }
 
+enum UserRole {
+  MEMBER
+  COACH
+  ADMIN
+}
+
 enum NutritionInputType {
   TEXT
   IMAGE
@@ -101,6 +107,20 @@ enum NutritionEntryStatus {
   PENDING
   PROCESSED
   FAILED
+}
+
+enum AgentRunStatus {
+  RUNNING
+  SUCCESS
+  FAILURE
+}
+
+enum AgentEventType {
+  TOOL_CALL
+  TOOL_RESPONSE
+  LLM_RESPONSE
+  ERROR
+  INFO
 }
 
 model User {
@@ -128,6 +148,31 @@ model User {
   healthConnections   UserHealthConnection[]
   healthRecords       HealthRecord[]
   nutritionEntries    NutritionEntry[]
+  workspaceMemberships WorkspaceMember[]
+  ownedWorkspaces      Workspace[]
+  agentRuns            AgentRun[]
+}
+
+model Workspace {
+  id        String            @id @default(uuid())
+  name      String
+  ownerId   String            @db.Uuid
+  owner     User              @relation(fields: [ownerId], references: [id])
+  members   WorkspaceMember[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  workspaceId String
+  userId      String    @db.Uuid
+  role        UserRole
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([workspaceId, userId])
 }
 
 model ExerciseMedia {
@@ -451,4 +496,45 @@ model NutritionAiAnalysis {
   entry         NutritionEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@index([entryId, createdAt])
+}
+
+model AgentDefinition {
+  id          String     @id @default(uuid())
+  agentId     String     @unique
+  description String?
+  version     String     @default("1.0.0")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  runs        AgentRun[]
+}
+
+model AgentRun {
+  id                String          @id @default(uuid())
+  agentDefinitionId String
+  userId            String          @db.Uuid
+  status            AgentRunStatus  @default(RUNNING)
+  input             Json?
+  output            Json?
+  error             Json?
+  startedAt         DateTime        @default(now())
+  endedAt           DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  agentDefinition   AgentDefinition @relation(fields: [agentDefinitionId], references: [id])
+  user              User            @relation(fields: [userId], references: [id])
+  events            AgentEvent[]
+
+  @@index([userId, startedAt])
+  @@index([agentDefinitionId, startedAt])
+}
+
+model AgentEvent {
+  id        String         @id @default(uuid())
+  runId     String
+  type      AgentEventType
+  payload   Json?
+  createdAt DateTime       @default(now())
+  run       AgentRun       @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
 }

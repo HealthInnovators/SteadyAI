@@ -1,6 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 
-import { logWorkoutSessionSummary } from '../services/workout-session.service';
+import { getPrismaClient } from '../db/prisma';
+import { authenticateRequest } from '../middleware/auth';
+import {
+  getWorkoutHistorySummary,
+  getWorkoutPreferences,
+  logWorkoutSessionSummary
+} from '../services/workout-session.service';
 
 interface WorkoutSessionSummaryBody {
   userId: string;
@@ -17,6 +23,43 @@ interface WorkoutSessionSummaryBody {
 }
 
 export async function workoutRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.get(
+    '/workouts/preferences',
+    {
+      preHandler: [authenticateRequest]
+    },
+    async (request, reply) => {
+      const preferences = await getWorkoutPreferences(request.userId!);
+      return preferences;
+    }
+  );
+
+  fastify.get(
+    '/workouts/history',
+    {
+      preHandler: [authenticateRequest]
+    },
+    async (request, reply) => {
+      // TODO: Make windowDays configurable from query string
+      const history = await getWorkoutHistorySummary(request.userId!, 30);
+      return history;
+    }
+  );
+
+  fastify.get(
+    '/workouts/exercise-media',
+    {
+      preHandler: [authenticateRequest]
+    },
+    async (request, reply) => {
+      const prisma = getPrismaClient();
+      const media = await prisma.exerciseMedia.findMany({
+        orderBy: { displayName: 'asc' }
+      });
+      return media;
+    }
+  );
+  
   fastify.post<{ Body: WorkoutSessionSummaryBody }>('/workouts/session-summary', async (request, reply) => {
     const body = request.body;
     if (!body?.userId || typeof body.userId !== 'string') {

@@ -1,35 +1,8 @@
 import { createLlmClientFromEnv } from './llm';
-
-export interface EducatorInput {
-  userQuestion: string;
-  threadContext?: string;
-}
-
-export interface EducatorResult {
-  lesson: string;
-  wordCount: number;
-  disclaimer: string;
-  evidenceBasis: string[];
-  provider: 'llm' | 'fallback';
-}
-
-export interface MythCitation {
-  title: string;
-  url: string;
-}
-
-export interface EducatorMythCorrectionInput {
-  communityPostText: string;
-  threadContext?: string;
-}
-
-export interface EducatorMythCorrectionResult {
-  suggestedCorrection: string;
-  context: string;
-  citations: MythCitation[];
-  disclaimer: string;
-  provider: 'llm' | 'fallback';
-}
+import { EducatorInput, EducatorResult, EducatorMythCorrectionInput, EducatorMythCorrectionResult, MythCitation } from './types';
+import { buildLessonPrompt, buildMythCorrectionPrompt } from './educator.prompt';
+import { asObject, getString, parseJsonObject } from '../utils/json';
+import { compactText } from '../utils/text';
 
 const MAX_WORDS = 250;
 const DISCLAIMER = 'Disclaimer: This is general educational information, not medical advice. For diagnosis or treatment, consult a licensed clinician.';
@@ -53,14 +26,17 @@ function truncateToWords(text: string, maxWords: number): string {
   }
   const words = normalized.split(' ');
   if (words.length <= maxWords) {
-    return normalized;
+    return `${words.slice(0, maxWords).join(' ')}...`;
   }
-  return `${words.slice(0, maxWords).join(' ')}...`;
+  return normalized;
 }
 
 function enforceConstraints(content: string): { lesson: string; wordCount: number } {
   const core = normalizeText(content);
-  const coreWithoutDisclaimer = core.replace(new RegExp(`${DISCLAIMER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), '').trim();
+  // Corrected regex to handle potential special characters in DISCLAIMER
+  const escapedDisclaimer = DISCLAIMER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const disclaimerRegex = new RegExp(`${escapedDisclaimer}$`);
+  const coreWithoutDisclaimer = core.replace(disclaimerRegex, '').trim();
   const availableWords = Math.max(40, MAX_WORDS - countWords(DISCLAIMER));
   const trimmedCore = truncateToWords(coreWithoutDisclaimer, availableWords);
   const combined = normalizeText(`${trimmedCore} ${DISCLAIMER}`);
@@ -93,35 +69,6 @@ function buildEvidenceBasis(userQuestion: string, threadContext?: string): strin
   }
 
   return items.slice(0, 3);
-}
-
-function asObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-  return value as Record<string, unknown>;
-}
-
-function parseJsonObject(input: string): Record<string, unknown> {
-  const trimmed = input.trim();
-  try {
-    return asObject(JSON.parse(trimmed));
-  } catch {
-    const start = trimmed.indexOf('{');
-    const end = trimmed.lastIndexOf('}');
-    if (start >= 0 && end > start) {
-      return asObject(JSON.parse(trimmed.slice(start, end + 1)));
-    }
-    throw new Error('Educator output is not valid JSON');
-  }
-}
-
-function getString(value: unknown, fallback: string): string {
-  if (typeof value !== 'string') {
-    return fallback;
-  }
-  const normalized = normalizeText(value);
-  return normalized || fallback;
 }
 
 function sanitizeNonConfrontational(text: string): string {
@@ -200,32 +147,31 @@ function buildFallbackMythCorrection(input: EducatorMythCorrectionInput): Educat
   };
 }
 
+export async function getEducatorHelp(options: { userId: string; topic: string; question: string }): Promise<{ response: string; citations: any[] }> {
+  // This is a placeholder to align with the new structure.
+  const result = await generateEducatorLesson({
+    userQuestion: options.question,
+    threadContext: options.topic,
+  });
+  return { response: result.lesson, citations: [] };
+}
+
 export async function generateEducatorLesson(input: EducatorInput): Promise<EducatorResult> {
   const evidenceBasis = buildEvidenceBasis(input.userQuestion, input.threadContext);
   const fallbackCore = buildFallbackLesson(input, evidenceBasis);
+  const llm = createLlmClientFromEnv();
+  const systemPrompt =
+    'You are an expert educator, coach, and trainer. Return only a short lesson. Do not use shaming language. Do not offer medical advice. Do not refer to yourself as an AI. Keep response to less than 220 words.';
 
   try {
-    const llm = createLlmClientFromEnv();
-    const prompt = [
-      'Create a short educational lesson for a user question using supportive language.',
-      'Requirements:',
-      '- evidence-based, practical, and clear',
-      '- no medical diagnosis or treatment claims',
-      '- at most 220 words (disclaimer will be appended by server)',
-      '- output plain text only',
-      `User question: ${input.userQuestion}`,
-      `Thread context: ${input.threadContext ?? 'None'}`
-    ].join('\n');
-
     const response = await llm.generateText({
-      prompt,
-      systemPrompt:
-        'You are an evidence-based educator. Keep tone supportive and neutral. No shaming language. No medical advice.',
-      temperature: 0.2,
-      maxOutputTokens: 420
+      prompt: buildLessonPrompt(input),
+      systemPrompt,
+      temperature: 0.1,
+      maxOutputTokens: 700
     });
 
-    const constrained = enforceConstraints(response.text);
+    const constrained = enforceConstraints(response);
     return {
       lesson: constrained.lesson,
       wordCount: constrained.wordCount,
@@ -247,36 +193,19 @@ export async function generateEducatorLesson(input: EducatorInput): Promise<Educ
 
 export async function generateMythCorrection(input: EducatorMythCorrectionInput): Promise<EducatorMythCorrectionResult> {
   const fallback = buildFallbackMythCorrection(input);
+  const llm = createLlmClientFromEnv();
+  const systemPrompt =
+    'Use supportive language only. Avoid confrontational terms. Output strict JSON only.';
 
   try {
-    const llm = createLlmClientFromEnv();
-    const prompt = [
-      'You are helping moderate a supportive health community discussion.',
-      'Given a post that may contain a misconception, provide a non-confrontational correction.',
-      'Return strict JSON only with this schema:',
-      '{',
-      '  "suggestedCorrection": "string",',
-      '  "context": "string",',
-      '  "citations": [{ "title": "string", "url": "https://..." }]',
-      '}',
-      'Rules:',
-      '- Keep tone neutral, respectful, and non-judgmental.',
-      '- Do not shame the original poster.',
-      '- Include 1-3 credible citations where possible.',
-      '- No medical diagnosis or treatment instructions.',
-      `Community post text: ${input.communityPostText}`,
-      `Thread context: ${input.threadContext ?? 'None'}`
-    ].join('\n');
-
     const response = await llm.generateText({
-      prompt,
-      systemPrompt:
-        'Use supportive language only. Avoid confrontational terms. Output strict JSON only.',
+      prompt: buildMythCorrectionPrompt(input),
+      systemPrompt,
       temperature: 0.15,
       maxOutputTokens: 500
     });
 
-    const parsed = parseJsonObject(response.text);
+    const parsed = parseJsonObject(response);
     const suggestedCorrection = sanitizeNonConfrontational(
       getString(parsed.suggestedCorrection, fallback.suggestedCorrection)
     );

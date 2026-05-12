@@ -124,3 +124,22 @@ export async function addNutritionImageToEntry(params: {
 
   return createdImage;
 }
+
+export async function getRecentNutritionEntries(userId: string, limit = 10) {
+  const prisma = getPrismaClient();
+
+  const entries = await prisma.nutritionEntry.findMany({
+    where: {
+      userId: userId,
+    },
+    include: {
+      items: true,
+    },
+    orderBy: {
+      consumedAt: 'desc',
+    },
+    take: limit,
+  });
+
+  return entries;
+}

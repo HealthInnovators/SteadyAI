@@ -2958,7 +2958,7 @@ async function handleToolCall(
   }
 
   if (name === 'steadyai.ask_agent') {
-    const agentType = args.agentType;
+    const agentType = args.agentType ?? args.agentId;
     const prompt = args.prompt;
 
     if (!isAgentType(agentType)) {

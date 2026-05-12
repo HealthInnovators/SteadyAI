@@ -63,15 +63,7 @@ export class GroqAdapter implements LlmProviderAdapter {
       const firstChoice = choices?.[0] as Record<string, unknown> | undefined;
       const message = firstChoice?.message as Record<string, unknown> | undefined;
       const content = typeof message?.content === 'string' ? message.content : '';
-      const finishReason = typeof firstChoice?.finish_reason === 'string' ? firstChoice.finish_reason : undefined;
-
-      return {
-        text: content,
-        provider: this.provider,
-        model,
-        finishReason,
-        raw
-      };
+      return content;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw new Error(`Groq request timed out after ${timeoutMs}ms`);

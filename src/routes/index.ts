@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { agentRoutes } from './agents';
+import { agentOpsRoutes } from './admin/agentops';
 import { assistantRoutes } from './assistant';
 import { appsMcpRoutes } from './apps-mcp';
 import { challengeRoutes } from './challenges';
@@ -14,8 +15,10 @@ import { nutritionRoutes } from './nutrition';
 import { reportsRoutes } from './reports';
 import { storeRoutes } from './store';
 import { workoutRoutes } from './workouts';
+import { platformRoutes } from './platform';
 
 export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
+  await fastify.register(agentOpsRoutes, { prefix: '/api' });
   await fastify.register(agentRoutes);
   await fastify.register(assistantRoutes);
   await fastify.register(appsMcpRoutes);
@@ -30,4 +33,5 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(reportsRoutes);
   await fastify.register(storeRoutes);
   await fastify.register(workoutRoutes);
+  await fastify.register(platformRoutes);
 }

@@ -62,15 +62,7 @@ export class GeminiAdapter implements LlmProviderAdapter {
       const content = first?.content as Record<string, unknown> | undefined;
       const parts = content?.parts as Array<Record<string, unknown>> | undefined;
       const text = typeof parts?.[0]?.text === 'string' ? (parts[0].text as string) : '';
-      const finishReason = typeof first?.finishReason === 'string' ? first.finishReason : undefined;
-
-      return {
-        text,
-        provider: this.provider,
-        model,
-        finishReason,
-        raw
-      };
+      return text;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw new Error(`Gemini request timed out after ${timeoutMs}ms`);
