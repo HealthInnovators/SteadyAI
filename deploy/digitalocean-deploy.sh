@@ -5,16 +5,18 @@ set -euo pipefail
 ENV_FILE=".env.production"
 INSTALL_DOCKER="false"
 SEED_STORE="false"
+BUILD_LOCAL="false"
 
 usage() {
   cat <<'EOF'
 Usage:
-  ./deploy/digitalocean-deploy.sh [--env-file .env.production] [--install-docker] [--seed-store]
+  ./deploy/digitalocean-deploy.sh [--env-file .env.production] [--install-docker] [--seed-store] [--build-local]
 
 Options:
   --env-file        Path to production env file. Default: .env.production
   --install-docker  Install Docker Engine + Compose plugin on Ubuntu.
   --seed-store      Seed the optional store catalog after deploy.
+  --build-local     Build backend and web images on the droplet instead of pulling GHCR images.
   -h, --help        Show this help text.
 EOF
 }
@@ -31,6 +33,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --seed-store)
       SEED_STORE="true"
+      shift
+      ;;
+    --build-local)
+      BUILD_LOCAL="true"
       shift
       ;;
     -h|--help)
@@ -95,17 +101,19 @@ for var_name in "${required_vars[@]}"; do
   fi
 done
 
-echo "Building and starting SteadyAI services..."
-if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
-  echo "Logging into GHCR..."
-  printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+if [[ "${BUILD_LOCAL}" == "true" ]]; then
+  echo "Building and starting SteadyAI services locally on the droplet..."
+  docker compose --env-file "${ENV_FILE}" up -d --build
+else
+  echo "Pulling and starting prebuilt SteadyAI images..."
+  if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
+    echo "Logging into GHCR..."
+    printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+  fi
+
+  docker compose --env-file "${ENV_FILE}" pull backend web caddy
+  docker compose --env-file "${ENV_FILE}" up -d --no-build
 fi
-
-echo "Pulling prebuilt SteadyAI images..."
-docker compose --env-file "${ENV_FILE}" pull backend web caddy
-
-echo "Starting SteadyAI services..."
-docker compose --env-file "${ENV_FILE}" up -d --no-build
 
 echo "Applying Prisma schema..."
 docker compose --env-file "${ENV_FILE}" exec -T backend npx prisma db push

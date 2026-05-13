@@ -1,6 +1,6 @@
 # Docker Deploy (DigitalOcean Droplet)
 
-This setup runs:
+This is the primary production deployment path for SteadyAI. It runs:
 - `backend` (Fastify) on internal `:3000`
 - `web` (Next.js) on internal `:3001`
 - `caddy` as public HTTPS entrypoint on `:80/:443` (automatic TLS)
@@ -25,7 +25,7 @@ Log out and back in once after adding your user to the docker group.
 ## 2) Clone and configure
 
 ```bash
-git clone https://github.com/HealthInnovators/SteadyAI.git
+git clone https://github.com/OpenHealthAgents/SteadyAI.git
 cd SteadyAI
 cp .env.production.example .env.production
 ```
@@ -36,7 +36,7 @@ Edit `.env.production` with production values. Required keys:
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `APP_DOMAIN` (for example `app.example.com`)
+- `APP_DOMAIN` (for example `www.goodhealth247.com`)
 - `API_DOMAIN` (for example `api.example.com`)
 - `ACME_EMAIL` (email for Let's Encrypt registration)
 - `PUBLIC_BASE_URL` (for example `https://api.example.com`)
@@ -54,7 +54,11 @@ If your GHCR packages are private, also set:
 - `GHCR_USERNAME`
 - `GHCR_TOKEN`
 
-## 3) Build images in GitHub Actions
+## 3) Choose image strategy
+
+You can either pull prebuilt GHCR images or build directly on the droplet.
+
+### Option A: Pull GHCR images
 
 This repo includes a workflow that builds and pushes:
 - `ghcr.io/openhealthagents/steadyai-backend:main`
@@ -67,21 +71,30 @@ Before using it, add these GitHub repository variables:
 
 Push to `main` or run the `Docker Images` workflow manually once to publish the images.
 
-## 4) Pull and run on the droplet
-
-One-command option:
+Deploy with:
 
 ```bash
 chmod +x deploy/digitalocean-deploy.sh
 ./deploy/digitalocean-deploy.sh --env-file .env.production
 ```
 
+### Option B: Build on the droplet
+
+Use this if GHCR packages are private, unavailable, or you want the droplet to build from the checked-out source:
+
+```bash
+chmod +x deploy/digitalocean-deploy.sh
+./deploy/digitalocean-deploy.sh --env-file .env.production --build-local
+```
+
+Building locally requires more CPU/RAM than pulling prebuilt images.
+
+## 4) Manual Docker commands
+
 Manual option:
 
 ```bash
-docker login ghcr.io
-docker compose --env-file .env.production pull backend web caddy
-docker compose --env-file .env.production up -d --no-build
+docker compose --env-file .env.production up -d --build
 ```
 
 ## 5) Sync schema once (recommended with current migration state)
