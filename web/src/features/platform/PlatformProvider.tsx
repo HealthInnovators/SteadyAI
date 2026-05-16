@@ -4,6 +4,8 @@ import { useAuth } from '@/auth';
 import { createApiClient, type PlatformContext, UserRole } from '@/lib/api';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
+const ONBOARDING_COMPLETED_KEY = 'steadyai.onboarding.completed';
+
 interface IPlatformContext extends PlatformContext {
     isLoading: boolean;
     error: string | null;
@@ -27,6 +29,9 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
         try {
             setIsLoading(true);
             const platformContext = await api.getPlatformContext();
+            if (platformContext.userIdentity.onboardingCompleted) {
+                window.localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+            }
             setContext(platformContext);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load platform context.');

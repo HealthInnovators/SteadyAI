@@ -14,6 +14,7 @@ import {
 import type { OnboardingDraft, OnboardingPayload, OnboardingResponse } from './types';
 
 const STORAGE_KEY = 'steadyai.onboarding.draft';
+const ONBOARDING_COMPLETED_KEY = 'steadyai.onboarding.completed';
 
 const initialDraft: OnboardingDraft = {
   primaryGoal: '',
@@ -135,6 +136,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         loginAsDevUser(resolvedUserId);
       }
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
       return response;
     } catch (submissionError) {
       const message = submissionError instanceof Error ? submissionError.message : 'Failed to submit onboarding';

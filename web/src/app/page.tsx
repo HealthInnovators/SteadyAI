@@ -1,9 +1,10 @@
 'use client';
 
 import { useAuth } from '@/auth';
+import { createApiClient } from '@/lib/api';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 const benefits = [
   {
@@ -53,15 +54,41 @@ const reasons = [
   'You want a steady habit system, not guilt, streak pressure, or unrealistic goals.'
 ];
 
+const ONBOARDING_COMPLETED_KEY = 'steadyai.onboarding.completed';
+
 export default function PublicHomePage() {
-  const { isAuthenticated, isHydrated } = useAuth();
+  const { isAuthenticated, isHydrated, token } = useAuth();
   const router = useRouter();
+  const api = useMemo(() => createApiClient(token ?? undefined), [token]);
 
   useEffect(() => {
-    if (isHydrated && isAuthenticated) {
-      router.replace('/onboarding');
+    let isMounted = true;
+
+    async function routeSignedInUser() {
+      if (!isHydrated || !isAuthenticated) {
+        return;
+      }
+
+      try {
+        const context = await api.getPlatformContext();
+        if (!isMounted) {
+          return;
+        }
+        router.replace(context.userIdentity.onboardingCompleted ? '/workouts' : '/onboarding');
+      } catch {
+        if (isMounted) {
+          const completedLocally = window.localStorage.getItem(ONBOARDING_COMPLETED_KEY) === 'true';
+          router.replace(completedLocally ? '/workouts' : '/onboarding');
+        }
+      }
     }
-  }, [isAuthenticated, isHydrated, router]);
+
+    void routeSignedInUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [api, isAuthenticated, isHydrated, router]);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,237,213,0.95),_rgba(246,236,226,0.9)_34%,_#f4efe8_72%)] text-[#1d140d]">
