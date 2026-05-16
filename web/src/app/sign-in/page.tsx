@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useMemo, useState } from 'react';
 
+type AuthMode = 'sign-in' | 'sign-up';
+
 function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,14 +19,20 @@ function SignInPageContent() {
     isSigningInWithGoogle,
     isSigningInWithApple,
     isSigningInWithPassword,
+    isSigningUpWithPassword,
     signInWithGoogle,
     signInWithApple,
-    signInWithPassword
+    signInWithPassword,
+    signUpWithPassword
   } = useAuth();
-  const [email, setEmail] = useState('reviewer-demo@goodhealth247.com');
+  const [mode, setMode] = useState<AuthMode>('sign-in');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const next = useMemo(() => searchParams.get('next') || '/onboarding', [searchParams]);
+  const isBusy = isSigningInWithPassword || isSigningUpWithPassword || isSigningInWithGoogle || isSigningInWithApple;
 
   if (isHydrated && isAuthenticated) {
     router.replace(next);
@@ -33,11 +41,24 @@ function SignInPageContent() {
   async function handlePasswordSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setNotice(null);
 
     try {
+      if (mode === 'sign-up') {
+        if (password !== confirmPassword) {
+          throw new Error('Passwords do not match.');
+        }
+
+        const result = await signUpWithPassword(email, password, { redirectTo: next });
+        if (result.needsEmailConfirmation) {
+          setNotice('Check your email to confirm your account, then return here to sign in.');
+        }
+        return;
+      }
+
       await signInWithPassword(email, password, { redirectTo: next });
     } catch (signInError) {
-      setError(signInError instanceof Error ? signInError.message : 'Unable to sign in.');
+      setError(signInError instanceof Error ? signInError.message : 'Unable to continue.');
     }
   }
 
@@ -46,18 +67,40 @@ function SignInPageContent() {
       <div className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <section className="rounded-[36px] border border-white/70 bg-white/72 p-8 shadow-[0_30px_120px_rgba(80,48,24,0.1)] backdrop-blur">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#7a4b28]">Steady AI Access</p>
-          <h1 className="mt-4 text-4xl font-semibold leading-tight">Sign in with the reviewer demo account or your normal provider.</h1>
+          <h1 className="mt-4 text-4xl font-semibold leading-tight">Sign in or create your SteadyAI account.</h1>
           <p className="mt-4 max-w-xl text-sm leading-7 text-[#5f5145]">
-            This sign-in page is intended to give reviewers immediate access without account creation. Email/password works directly against the existing Supabase auth project.
+            Your account unlocks personalized coaching, saved preferences, workout and nutrition logs, weekly reports, and ChatGPT app context.
           </p>
           <div className="mt-8 rounded-[28px] border border-[#ead9ca] bg-[#fffaf5] p-5 text-sm text-[#5f5145]">
-            <p className="font-semibold text-[#1d140d]">Reviewer flow</p>
-            <p className="mt-2">Use the demo email and password provided in the OpenAI submission. No signup, OTP, or 2FA should be required.</p>
+            <p className="font-semibold text-[#1d140d]">What you get after login</p>
+            <ul className="mt-3 space-y-2">
+              <li>Personalized workout and nutrition coaching.</li>
+              <li>Saved plans, preferences, and progress history.</li>
+              <li>Check-ins and reports that help you decide what to do next.</li>
+            </ul>
           </div>
         </section>
 
         <section className="rounded-[36px] border border-[#e8d7c6] bg-[#1d140d] p-8 text-white shadow-[0_30px_120px_rgba(29,20,13,0.24)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8c0ad]">Sign in</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#d8c0ad]">Account access</p>
+          <div className="mt-5 grid grid-cols-2 rounded-full border border-[#5e4a3b] bg-[#2a1e15] p-1">
+            {(['sign-in', 'sign-up'] as const).map((nextMode) => (
+              <button
+                key={nextMode}
+                type="button"
+                onClick={() => {
+                  setMode(nextMode);
+                  setError(null);
+                  setNotice(null);
+                }}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  mode === nextMode ? 'bg-[#f4d4b0] text-[#1d140d]' : 'text-[#d8c0ad] hover:bg-white/5'
+                }`}
+              >
+                {nextMode === 'sign-in' ? 'Sign in' : 'Create account'}
+              </button>
+            ))}
+          </div>
           {isPasswordAuthConfigured ? (
             <form className="mt-5 space-y-4" onSubmit={handlePasswordSignIn}>
               <label className="block text-sm">
@@ -68,7 +111,7 @@ function SignInPageContent() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   className="w-full rounded-2xl border border-[#5e4a3b] bg-[#2a1e15] px-4 py-3 text-white outline-none placeholder:text-[#9e8a7b]"
-                  placeholder="reviewer-demo@goodhealth247.com"
+                  placeholder="you@example.com"
                 />
               </label>
               <label className="block text-sm">
@@ -82,13 +125,33 @@ function SignInPageContent() {
                   placeholder="Enter password"
                 />
               </label>
+              {mode === 'sign-up' ? (
+                <label className="block text-sm">
+                  <span className="mb-2 block text-[#d8c0ad]">Confirm password</span>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    className="w-full rounded-2xl border border-[#5e4a3b] bg-[#2a1e15] px-4 py-3 text-white outline-none placeholder:text-[#9e8a7b]"
+                    placeholder="Re-enter password"
+                  />
+                </label>
+              ) : null}
               {error ? <p className="text-sm text-[#ffb4ab]">{error}</p> : null}
+              {notice ? <p className="rounded-2xl bg-[#f4d4b0] p-3 text-sm text-[#1d140d]">{notice}</p> : null}
               <button
                 type="submit"
-                disabled={isSigningInWithPassword || isSigningInWithGoogle || isSigningInWithApple}
+                disabled={isBusy}
                 className="w-full rounded-full bg-[#f4d4b0] px-5 py-3 text-sm font-semibold text-[#1d140d] disabled:opacity-60"
               >
-                {isSigningInWithPassword ? 'Signing in...' : 'Continue with email and password'}
+                {mode === 'sign-up'
+                  ? isSigningUpWithPassword
+                    ? 'Creating account...'
+                    : 'Create account with email'
+                  : isSigningInWithPassword
+                    ? 'Signing in...'
+                    : 'Continue with email'}
               </button>
             </form>
           ) : null}
@@ -103,7 +166,7 @@ function SignInPageContent() {
                     onClick={() => {
                       void signInWithGoogle({ redirectTo: next });
                     }}
-                    disabled={isSigningInWithPassword || isSigningInWithGoogle || isSigningInWithApple}
+                    disabled={isBusy}
                     className="rounded-full bg-white px-5 py-3 text-sm font-medium text-[#1d140d] disabled:opacity-60"
                   >
                     {isSigningInWithGoogle ? 'Connecting Google...' : 'Continue with Google'}
@@ -115,7 +178,7 @@ function SignInPageContent() {
                     onClick={() => {
                       void signInWithApple({ redirectTo: next });
                     }}
-                    disabled={isSigningInWithPassword || isSigningInWithGoogle || isSigningInWithApple}
+                    disabled={isBusy}
                     className="rounded-full border border-white/30 px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
                   >
                     {isSigningInWithApple ? 'Connecting Apple...' : 'Continue with Apple'}

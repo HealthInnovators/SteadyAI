@@ -27,11 +27,13 @@ interface AuthContextValue {
   isSigningInWithGoogle: boolean;
   isSigningInWithApple: boolean;
   isSigningInWithPassword: boolean;
+  isSigningUpWithPassword: boolean;
   login: (jwt: string) => void;
   loginAsDevUser: (userId: string) => void;
   signInWithGoogle: (options?: { redirectTo?: string }) => Promise<void>;
   signInWithApple: (options?: { redirectTo?: string }) => Promise<void>;
   signInWithPassword: (email: string, password: string, options?: { redirectTo?: string }) => Promise<void>;
+  signUpWithPassword: (email: string, password: string, options?: { redirectTo?: string }) => Promise<{ needsEmailConfirmation: boolean }>;
   setToken: (jwt: string | null) => void;
   logout: (options?: { redirectTo?: string }) => void;
 }
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSigningInWithGoogle, setIsSigningInWithGoogle] = useState(false);
   const [isSigningInWithApple, setIsSigningInWithApple] = useState(false);
   const [isSigningInWithPassword, setIsSigningInWithPassword] = useState(false);
+  const [isSigningUpWithPassword, setIsSigningUpWithPassword] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const isGoogleAuthConfigured = isSupabaseBrowserAuthConfigured();
@@ -224,6 +227,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [pathname, persistDevUserId, persistToken, router]
   );
 
+  const signUpWithPassword = useCallback(
+    async (email: string, password: string, options?: { redirectTo?: string }) => {
+      const supabase = createBrowserSupabaseClient();
+      if (!supabase) {
+        throw new Error('Supabase browser auth is not configured.');
+      }
+
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail || !password) {
+        throw new Error('Email and password are required.');
+      }
+
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters.');
+      }
+
+      const emailRedirectTo = new URL('/auth/callback', window.location.origin);
+      const target = options?.redirectTo ?? pathname ?? '/onboarding';
+      emailRedirectTo.searchParams.set('next', target);
+
+      setIsSigningUpWithPassword(true);
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password,
+          options: {
+            emailRedirectTo: emailRedirectTo.toString()
+          }
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data.session?.access_token) {
+          persistToken(data.session.access_token);
+          if (data.user?.id) {
+            persistDevUserId(data.user.id);
+          }
+          router.replace(target);
+          return { needsEmailConfirmation: false };
+        }
+
+        return { needsEmailConfirmation: true };
+      } finally {
+        setIsSigningUpWithPassword(false);
+      }
+    },
+    [pathname, persistDevUserId, persistToken, router]
+  );
+
   const logout = useCallback(
     (options?: { redirectTo?: string }) => {
       const supabase = createBrowserSupabaseClient();
@@ -252,11 +306,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSigningInWithGoogle,
       isSigningInWithApple,
       isSigningInWithPassword,
+      isSigningUpWithPassword,
       login,
       loginAsDevUser,
       signInWithGoogle,
       signInWithApple,
       signInWithPassword,
+      signUpWithPassword,
       setToken: persistToken,
       logout
     }),
@@ -268,6 +324,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSigningInWithApple,
       isSigningInWithGoogle,
       isSigningInWithPassword,
+      isSigningUpWithPassword,
       login,
       loginAsDevUser,
       logout,
@@ -275,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithApple,
       signInWithGoogle,
       signInWithPassword,
+      signUpWithPassword,
       token,
       userId
     ]
