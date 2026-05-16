@@ -3,12 +3,20 @@
 import { createApiClient } from '@/lib/api';
 import { useAuth } from '@/auth';
 import { useEffect, useMemo, useState } from 'react';
-import type { AgentRun, AgentEvent, AgentDefinition } from '@prisma/client';
 
-// Simplified representation of the AgentRun type returned by our API
-interface AgentRunData extends AgentRun {
-    agentDefinition: AgentDefinition;
-    events: AgentEvent[];
+type AgentRunData = {
+    id: string;
+    status: string;
+    startedAt: string | Date;
+    endedAt: string | Date | null;
+    agentDefinition: {
+        agentId: string;
+    };
+    events: Array<{
+        id: string;
+        type: string;
+        createdAt: string | Date;
+    }>;
 }
 
 function RunRow({ run }: { run: AgentRunData }) {
