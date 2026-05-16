@@ -9,17 +9,17 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function CoachPage() {
-    const { workspace, isLoading } = usePlatformContext();
+    const { userIdentity, workspace, isLoading } = usePlatformContext();
     const router = useRouter();
 
     useEffect(() => {
         if (!isLoading && workspace.role !== UserRole.COACH && workspace.role !== UserRole.ADMIN) {
-            router.replace('/');
+            router.replace(userIdentity.onboardingCompleted ? '/workouts' : '/onboarding');
         }
-    }, [isLoading, workspace.role, router]);
+    }, [isLoading, router, userIdentity.onboardingCompleted, workspace.role]);
 
     if (isLoading || (workspace.role !== UserRole.COACH && workspace.role !== UserRole.ADMIN)) {
-        return <div className="p-6 text-center">Loading coach dashboard...</div>;
+        return <div className="p-6 text-center">Redirecting to your SteadyAI dashboard...</div>;
     }
 
     return (

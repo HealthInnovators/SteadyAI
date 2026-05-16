@@ -59,7 +59,7 @@ export default function PublicHomePage() {
 
   useEffect(() => {
     if (isHydrated && isAuthenticated) {
-      router.replace('/coach');
+      router.replace('/onboarding');
     }
   }, [isAuthenticated, isHydrated, router]);
 

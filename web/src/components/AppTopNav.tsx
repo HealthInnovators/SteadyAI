@@ -12,6 +12,13 @@ const CORE_NAV_ITEMS: Array<{ href: string; label: string }> = [
   { href: '/store', label: 'Store' }
 ];
 
+const AUTH_NAV_ITEMS: Array<{ href: string; label: string }> = [
+  { href: '/workouts', label: 'Home' },
+  { href: '/community', label: 'Community' },
+  { href: '/reports', label: 'Reports' },
+  { href: '/store', label: 'Store' }
+];
+
 const DEFAULT_POST_AUTH_PATH = '/onboarding';
 
 function isActive(pathname: string, href: string): boolean {
@@ -36,7 +43,7 @@ export function AppTopNav() {
     logout
   } = useAuth();
   const navItems = isAuthenticated
-    ? CORE_NAV_ITEMS
+    ? AUTH_NAV_ITEMS
     : [...CORE_NAV_ITEMS.slice(0, 1), { href: '/onboarding', label: 'Onboarding' }, ...CORE_NAV_ITEMS.slice(1)];
 
   return (
