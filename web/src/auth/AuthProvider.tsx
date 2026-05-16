@@ -346,6 +346,10 @@ async function signInWithOAuthProvider(provider: 'google' | 'apple', pathname: s
   if (!supabase) {
     throw new Error('Supabase browser auth is not configured.');
   }
+  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!supabasePublishableKey) {
+    throw new Error('Supabase publishable key is not configured.');
+  }
 
   const redirectTo = new URL('/auth/callback', window.location.origin);
   const next = redirectToOverride || pathname || '/';
@@ -360,10 +364,13 @@ async function signInWithOAuthProvider(provider: 'google' | 'apple', pathname: s
       queryParams:
         provider === 'google'
           ? {
+              apikey: supabasePublishableKey,
               access_type: 'offline',
               prompt: 'consent'
             }
-          : undefined
+          : {
+              apikey: supabasePublishableKey
+            }
     }
   });
 
