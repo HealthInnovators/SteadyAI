@@ -12,6 +12,8 @@ const CORE_NAV_ITEMS: Array<{ href: string; label: string }> = [
   { href: '/store', label: 'Store' }
 ];
 
+const DEFAULT_POST_AUTH_PATH = '/onboarding';
+
 function isActive(pathname: string, href: string): boolean {
   if (href === '/') {
     return pathname === '/';
@@ -94,7 +96,7 @@ export function AppTopNav() {
                 <button
                   type="button"
                   onClick={() => {
-                    void signInWithGoogle();
+                    void signInWithGoogle({ redirectTo: DEFAULT_POST_AUTH_PATH });
                   }}
                   disabled={isSigningInWithGoogle || isSigningInWithApple}
                   className="rounded-full bg-[#1d140d] px-4 py-2 text-sm text-white disabled:bg-[#ab9a8c]"
@@ -106,7 +108,7 @@ export function AppTopNav() {
                 <button
                   type="button"
                   onClick={() => {
-                    void signInWithApple();
+                    void signInWithApple({ redirectTo: DEFAULT_POST_AUTH_PATH });
                   }}
                   disabled={isSigningInWithGoogle || isSigningInWithApple}
                   className="rounded-full border border-[#1d140d] bg-white px-4 py-2 text-sm text-[#1d140d] disabled:border-[#cab8a8] disabled:text-[#ab9a8c]"
@@ -165,7 +167,7 @@ export function AppTopNav() {
                     type="button"
                     onClick={() => {
                       setIsOpen(false);
-                      void signInWithGoogle();
+                      void signInWithGoogle({ redirectTo: DEFAULT_POST_AUTH_PATH });
                     }}
                     disabled={isSigningInWithGoogle || isSigningInWithApple}
                     className="rounded-full bg-[#1d140d] px-3 py-2 text-left text-sm text-white disabled:bg-[#ab9a8c]"
@@ -178,7 +180,7 @@ export function AppTopNav() {
                     type="button"
                     onClick={() => {
                       setIsOpen(false);
-                      void signInWithApple();
+                      void signInWithApple({ redirectTo: DEFAULT_POST_AUTH_PATH });
                     }}
                     disabled={isSigningInWithGoogle || isSigningInWithApple}
                     className="rounded-full border border-[#1d140d] px-3 py-2 text-left text-sm text-[#1d140d] disabled:border-[#cab8a8] disabled:text-[#ab9a8c]"

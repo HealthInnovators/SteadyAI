@@ -54,7 +54,7 @@ function AuthCallbackPageContent() {
 
         login(accessToken);
 
-        const next = searchParams.get('next') || '/';
+        const next = searchParams.get('next') || '/onboarding';
         router.replace(next);
       } catch (callbackError) {
         if (active) {

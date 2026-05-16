@@ -1,4 +1,9 @@
+'use client';
+
+import { useAuth } from '@/auth';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 const benefits = [
   {
@@ -49,6 +54,15 @@ const reasons = [
 ];
 
 export default function PublicHomePage() {
+  const { isAuthenticated, isHydrated } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isHydrated && isAuthenticated) {
+      router.replace('/coach');
+    }
+  }, [isAuthenticated, isHydrated, router]);
+
   return (
     <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,237,213,0.95),_rgba(246,236,226,0.9)_34%,_#f4efe8_72%)] text-[#1d140d]">
       <section className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-16">

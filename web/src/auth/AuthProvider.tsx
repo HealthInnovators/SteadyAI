@@ -352,7 +352,7 @@ async function signInWithOAuthProvider(provider: 'google' | 'apple', pathname: s
   }
 
   const redirectTo = new URL('/auth/callback', window.location.origin);
-  const next = redirectToOverride || pathname || '/';
+  const next = redirectToOverride || (pathname && pathname !== '/' ? pathname : '/onboarding');
   if (next) {
     redirectTo.searchParams.set('next', next);
   }
