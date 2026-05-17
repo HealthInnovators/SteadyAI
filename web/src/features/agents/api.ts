@@ -12,8 +12,11 @@ interface AgentReplyResponse {
 
 const AGENT_REQUEST_TIMEOUT_MS = 12000;
 
-export async function requestAgentReply(prompt: string): Promise<{ text: string; intent?: AssistantIntent; reasoning?: ReasoningStep[]; cards?: AssistantCard[] }> {
-  const api = createApiClient();
+export async function requestAgentReply(
+  prompt: string,
+  token?: string | null
+): Promise<{ text: string; intent?: AssistantIntent; reasoning?: ReasoningStep[]; cards?: AssistantCard[] }> {
+  const api = createApiClient(token ?? undefined);
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), AGENT_REQUEST_TIMEOUT_MS);
 

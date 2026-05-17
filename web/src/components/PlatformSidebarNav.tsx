@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 
 const ALL_NAV_ITEMS = [
-  { href: '/', label: 'Home' },
+  { href: '/agents', label: 'AI Coach' },
   { href: '/coach', label: 'Coaching', roles: ['COACH', 'ADMIN'] },
   { href: '/workouts', label: 'Workouts' },
   { href: '/nutrition', label: 'Nutrition' },

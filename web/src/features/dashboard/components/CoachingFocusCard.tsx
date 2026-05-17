@@ -19,7 +19,7 @@ function mapIntentToFocus(intent: AssistantIntent): string {
       case 'STORE':
         return '/store';
       default:
-        return '/';
+        return '/agents';
     }
 }
 

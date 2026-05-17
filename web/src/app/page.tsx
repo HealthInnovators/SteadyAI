@@ -74,11 +74,11 @@ export default function PublicHomePage() {
         if (!isMounted) {
           return;
         }
-        router.replace(context.userIdentity.onboardingCompleted ? '/workouts' : '/onboarding');
+        router.replace(context.userIdentity.onboardingCompleted ? '/agents' : '/onboarding');
       } catch {
         if (isMounted) {
           const completedLocally = window.localStorage.getItem(ONBOARDING_COMPLETED_KEY) === 'true';
-          router.replace(completedLocally ? '/workouts' : '/onboarding');
+          router.replace(completedLocally ? '/agents' : '/onboarding');
         }
       }
     }

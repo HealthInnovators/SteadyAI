@@ -1,5 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { AgentEventType } from '@prisma/client';
 
+import { steadyAiInternalRuntime } from '../agents/runtime/steadyai-internal.runtime';
+import type { AgentCapabilityId } from '../agents/runtime/types';
+import { optionalAuthenticateRequest } from '../middleware/auth';
 import type { AgentChatType } from '../services/agent-chat.service';
 import { generateAgentChatReply } from '../services/agent-chat.service';
 import { generateEducatorLesson } from '../services/educator.service';
@@ -157,7 +161,10 @@ function buildCards(input: {
 }
 
 export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.post<{ Body: AssistantMessageBody }>('/assistant/message', async (request, reply) => {
+  fastify.post<{ Body: AssistantMessageBody }>(
+    '/assistant/message',
+    { preHandler: optionalAuthenticateRequest },
+    async (request, reply) => {
     const message = typeof request.body?.message === 'string' ? request.body.message.trim() : '';
     if (!message) {
       return reply.status(400).send({ error: 'message is required' });
@@ -168,10 +175,25 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
       const intent = detectAssistantIntent(message);
 
       if (route.type === 'EDUCATOR') {
-        const lesson = await generateEducatorLesson({
-          userQuestion: message,
-          threadContext: ''
+        const run = await steadyAiInternalRuntime.runAgent<
+          { message: string; intent: AssistantIntent },
+          Awaited<ReturnType<typeof generateEducatorLesson>>
+        >({
+          agentId: route.toolName as AgentCapabilityId,
+          userId: request.userId,
+          input: { message, intent },
+          execute: async (context) => {
+            await context.logEvent(AgentEventType.INFO, {
+              message: 'Assistant routed request to educator flow',
+              intent
+            });
+            return generateEducatorLesson({
+              userQuestion: message,
+              threadContext: ''
+            });
+          }
         });
+        const lesson = run.output;
         const reasoning = [{ title: 'Route', detail: 'Routed to educator flow for evidence-oriented clarification.' }];
         const cards = buildCards({
           reply: lesson.lesson,
@@ -185,11 +207,28 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
           routedTo: 'EDUCATOR',
           intent,
           toolInvocations: [route.toolName],
+          agentRunId: run.runId,
           cards
         });
       }
 
-      const result = await generateAgentChatReply(route.agentType, message);
+      const run = await steadyAiInternalRuntime.runAgent<
+        { message: string; intent: AssistantIntent; agentType: AgentChatType },
+        Awaited<ReturnType<typeof generateAgentChatReply>>
+      >({
+        agentId: route.toolName as AgentCapabilityId,
+        userId: request.userId,
+        input: { message, intent, agentType: route.agentType },
+        execute: async (context) => {
+          await context.logEvent(AgentEventType.INFO, {
+            message: 'Assistant routed request to internal agent flow',
+            intent,
+            agentType: route.agentType
+          });
+          return generateAgentChatReply(route.agentType, message);
+        }
+      });
+      const result = run.output;
       const cards = buildCards({
         reply: result.text,
         reasoning: result.reasoning,
@@ -203,11 +242,13 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
         routedTo: route.agentType,
         intent,
         toolInvocations: [route.toolName],
+        agentRunId: run.runId,
         cards
       });
     } catch (error) {
       request.log.error(error);
       return reply.status(400).send({ error: error instanceof Error ? error.message : 'Failed to process assistant message' });
     }
-  });
+  }
+  );
 }

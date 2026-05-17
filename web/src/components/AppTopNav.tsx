@@ -13,7 +13,9 @@ const CORE_NAV_ITEMS: Array<{ href: string; label: string }> = [
 ];
 
 const AUTH_NAV_ITEMS: Array<{ href: string; label: string }> = [
-  { href: '/workouts', label: 'Home' },
+  { href: '/agents', label: 'AI Coach' },
+  { href: '/workouts', label: 'Workouts' },
+  { href: '/nutrition', label: 'Nutrition' },
   { href: '/community', label: 'Community' },
   { href: '/reports', label: 'Reports' },
   { href: '/store', label: 'Store' }

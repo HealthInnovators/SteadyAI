@@ -14,7 +14,7 @@ export default function CoachPage() {
 
     useEffect(() => {
         if (!isLoading && workspace.role !== UserRole.COACH && workspace.role !== UserRole.ADMIN) {
-            router.replace(userIdentity.onboardingCompleted ? '/workouts' : '/onboarding');
+            router.replace(userIdentity.onboardingCompleted ? '/agents' : '/onboarding');
         }
     }, [isLoading, router, userIdentity.onboardingCompleted, workspace.role]);
 

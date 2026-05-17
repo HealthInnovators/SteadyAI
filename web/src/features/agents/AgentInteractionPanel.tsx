@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useAuth } from '@/auth';
+import { useRouter } from 'next/navigation';
+import { FormEvent, startTransition, useMemo, useState } from 'react';
 import { requestAgentReply } from './api';
 import { AGENT_DISCLAIMER, STARTER_PROMPT_GROUPS, STARTER_PROMPTS } from './data';
 import type { AssistantIntent, ChatMessage } from './types';
@@ -10,15 +12,45 @@ interface AgentInteractionPanelProps {
   onIntentDetected?: (intent: AssistantIntent) => void;
 }
 
+const INTENT_ROUTES: Partial<Record<AssistantIntent, string>> = {
+  FITNESS: '/workouts',
+  NUTRITION: '/nutrition',
+  COMMUNITY: '/community',
+  REPORTS: '/reports',
+  STORE: '/store',
+  TRACKING: '/reports',
+  CHECK_IN: '/check-in',
+  EDUCATION: '/agents'
+};
+
+const INTENT_LABELS: Record<AssistantIntent, string> = {
+  FITNESS: 'Workout coach',
+  NUTRITION: 'Nutrition coach',
+  TRACKING: 'Tracking analyst',
+  CHECK_IN: 'Check-in coach',
+  COMMUNITY: 'Community guide',
+  REPORTS: 'Report analyst',
+  STORE: 'Store guide',
+  EDUCATION: 'Health educator',
+  GENERAL: 'SteadyAI coordinator'
+};
+
 export function AgentInteractionPanel({ embedded = false, onIntentDetected }: AgentInteractionPanelProps) {
+  const router = useRouter();
+  const { token } = useAuth();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [activePromptGroup, setActivePromptGroup] = useState<(typeof STARTER_PROMPT_GROUPS)[number]['id']>(
     STARTER_PROMPT_GROUPS[0].id
   );
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage()]);
+  const [activeIntent, setActiveIntent] = useState<AssistantIntent>('GENERAL');
 
   const visibleGroup = STARTER_PROMPT_GROUPS.find((group) => group.id === activePromptGroup) || STARTER_PROMPT_GROUPS[0];
+  const suggestedRoute = activeIntent === 'GENERAL' ? null : INTENT_ROUTES[activeIntent] || null;
+  const shellClass = embedded
+    ? 'w-full'
+    : 'min-h-screen w-full bg-[radial-gradient(circle_at_top_left,_rgba(255,237,213,0.9),_rgba(246,236,226,0.94)_35%,_#f4efe8_82%)] p-4 sm:p-6 lg:p-8';
 
   async function sendPrompt(promptText: string): Promise<void> {
     const prompt = promptText.trim();
@@ -26,17 +58,18 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
       return;
     }
 
+    const now = Date.now();
     const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: `user-${now}`,
       role: 'user',
       text: prompt,
       createdAt: new Date().toISOString()
     };
-    const pendingId = `pending-${Date.now()}`;
+    const pendingId = `pending-${now}`;
     const pendingMessage: ChatMessage = {
       id: pendingId,
       role: 'system',
-      text: 'Thinking...',
+      text: 'Thinking through your intent and choosing the right SteadyAI agent...',
       createdAt: new Date().toISOString()
     };
 
@@ -45,23 +78,25 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
     setIsSending(true);
 
     try {
-      const reply = await requestAgentReply(prompt);
+      const reply = await requestAgentReply(prompt, token);
+      const nextIntent = reply.intent || 'GENERAL';
       const agentMessage: ChatMessage = {
         id: `agent-${Date.now()}`,
         role: 'agent',
         text: reply.text,
-        routedIntent: reply.intent,
+        routedIntent: nextIntent,
         reasoning: reply.reasoning,
         cards: reply.cards,
         createdAt: new Date().toISOString()
       };
-      setMessages((prev) => prev.filter((m) => m.id !== pendingId).concat(agentMessage));
-      if (reply.intent) {
-        onIntentDetected?.(reply.intent);
+      setActiveIntent(nextIntent);
+      setMessages((prev) => prev.filter((message) => message.id !== pendingId).concat(agentMessage));
+      if (nextIntent !== 'GENERAL') {
+        onIntentDetected?.(nextIntent);
       }
     } catch {
       setMessages((prev) =>
-        prev.filter((m) => m.id !== pendingId).concat({
+        prev.filter((message) => message.id !== pendingId).concat({
           id: `fallback-${Date.now()}`,
           role: 'agent',
           text: 'Assistant is temporarily unavailable. Please retry in a few seconds.',
@@ -73,194 +108,242 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
     }
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void sendPrompt(input);
+  }
+
+  function openSuggestedWorkspace() {
+    if (!suggestedRoute) {
+      return;
+    }
+
+    startTransition(() => {
+      router.push(suggestedRoute);
+    });
+  }
+
+  const lastAgentMessage = useMemo(
+    () => [...messages].reverse().find((message) => message.role === 'agent'),
+    [messages]
+  );
+
   return (
-    <section className={`mx-auto flex w-full flex-col gap-4 ${embedded ? '' : 'min-h-screen max-w-5xl p-6'}`}>
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#7a4b28]">
-          <span className="rounded-full bg-[#f5ddc7] px-3 py-1">Coach Mode</span>
-          <span>Simple guided flow</span>
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold text-[#1d140d]">Conversational fitness and nutrition coach</h1>
-          <p className="max-w-2xl text-sm text-[#5f5145]">
-            Ask in plain language. Steady AI routes you into training, meals, community, reports, or device tracking without
-            making you learn the app first.
-          </p>
-        </div>
-        <p className="rounded-2xl border border-[#e4b98f] bg-[#fff4e6] p-3 text-sm text-[#7a4b28]" role="note" aria-live="polite">
-          {AGENT_DISCLAIMER}
-        </p>
-      </header>
+    <section className={shellClass}>
+      <div className={`mx-auto grid w-full gap-4 ${embedded ? '' : 'max-w-7xl lg:grid-cols-[1fr_340px]'}`}>
+        <div className="flex min-h-[72vh] flex-col overflow-hidden rounded-[34px] border border-white/70 bg-[#fffaf5]/88 shadow-[0_28px_100px_rgba(80,48,24,0.12)] backdrop-blur">
+          <header className="border-b border-[#ead9ca] px-5 py-4 sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8a4b22]">SteadyAI command center</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#1d140d] sm:text-4xl">
+                  Tell SteadyAI what you need. The agents choose the path.
+                </h1>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5f5145]">
+                  Ask naturally about workouts, meals, progress, check-ins, community, or products. SteadyAI detects the intent,
+                  routes to the right agent, and gives you the next action.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#ead9ca] bg-white/75 px-4 py-3 text-sm">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#8a4b22]">Active agent</p>
+                <p className="mt-1 font-semibold text-[#1d140d]">{INTENT_LABELS[activeIntent]}</p>
+              </div>
+            </div>
+          </header>
 
-      <section aria-label="Starter prompts" className="rounded-[28px] border border-white/60 bg-white/80 p-4 shadow-[0_24px_80px_rgba(80,48,24,0.08)] backdrop-blur">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-[#1d140d]">Starter prompts</p>
-          <button
-            type="button"
-            className="rounded-full border border-[#d8c4b3] bg-[#fbf5ef] px-3 py-1 text-xs text-[#5f5145] hover:bg-[#f4eadf]"
-            onClick={() => {
-              const randomPrompt = STARTER_PROMPTS[Math.floor(Math.random() * STARTER_PROMPTS.length)];
-              if (randomPrompt) {
-                void sendPrompt(randomPrompt);
-              }
-            }}
-          >
-            Surprise me
-          </button>
-        </div>
+          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onAction={(prompt) => {
+                  void sendPrompt(prompt);
+                }}
+              />
+            ))}
+          </div>
 
-        <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {STARTER_PROMPT_GROUPS.map((group) => {
-            const isActive = group.id === activePromptGroup;
-            return (
-              <button
-                key={group.id}
-                type="button"
-                onClick={() => setActivePromptGroup(group.id)}
-                className={`rounded-2xl border p-3 text-left transition ${
-                  isActive
-                    ? 'border-[#1d140d] bg-[#1d140d] text-white'
-                    : 'border-[#e6d9cc] bg-white text-[#1d140d] hover:border-[#c4ad98] hover:bg-[#fcf7f1]'
-                }`}
-              >
-                <p className="text-xs font-semibold">{group.label}</p>
-                <p className={`mt-1 text-[11px] ${isActive ? 'text-[#f2e8dd]' : 'text-[#77685d]'}`}>{group.description}</p>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {visibleGroup.prompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => {
-                void sendPrompt(prompt);
-              }}
-              className="rounded-full border border-[#dccbbb] bg-[#fbf5ef] px-3 py-1 text-xs text-[#4e4035] hover:bg-[#f3e7da]"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: 'Fitness plan', prompt: 'Give me a 30-minute workout plan for today.' },
-            { label: 'Nutrition plan', prompt: 'Create a simple 1-day high-protein meal plan.' },
-            { label: 'Generate report', prompt: 'Summarize my week and give me one improvement suggestion.' },
-            { label: 'Community help', prompt: 'Draft a supportive post for someone rebuilding consistency.' }
-          ].map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => {
-                void sendPrompt(action.prompt);
-              }}
-              className="rounded-2xl border border-[#dccbbb] bg-[#fffaf5] px-3 py-3 text-left text-xs font-medium text-[#4e4035] hover:bg-[#f7efe6]"
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section
-        className="flex-1 overflow-hidden rounded-[28px] border border-white/60 bg-[#fffdf9]/95 shadow-[0_24px_80px_rgba(80,48,24,0.08)]"
-        aria-label="Assistant conversation"
-      >
-        <ul
-          className={`${embedded ? 'max-h-[40vh]' : 'max-h-[55vh]'} space-y-3 overflow-y-auto p-4`}
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions text"
-        >
-          {messages.map((message) => {
-            const isUser = message.role === 'user';
-            return (
-              <li key={message.id} className="space-y-2">
-                <div
-                  className={`rounded-3xl border p-4 text-sm ${
-                    isUser
-                      ? 'ml-auto max-w-[85%] border-[#1d140d] bg-[#1d140d] text-white'
-                      : 'max-w-[92%] border-[#eee1d5] bg-[#fcf7f1] text-[#1d140d]'
-                  }`}
+          <form onSubmit={handleSubmit} className="border-t border-[#ead9ca] bg-white/72 p-4 sm:p-5">
+            <div className="rounded-[28px] border border-[#d8c4b3] bg-[#fffcf8] p-3 shadow-inner">
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendPrompt(input);
+                  }
+                }}
+                className="min-h-24 w-full resize-none bg-transparent p-2 text-base text-[#1d140d] outline-none placeholder:text-[#9a897a]"
+                placeholder="Example: Create a low-impact workout, log my lunch, summarize my week, or draft a community check-in..."
+              />
+              <div className="flex flex-col gap-3 border-t border-[#ead9ca] pt-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs leading-5 text-[#7a4b28]">{AGENT_DISCLAIMER}</p>
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isSending}
+                  className="rounded-full bg-[#1d140d] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)] disabled:bg-[#ab9a8c]"
                 >
-                  {message.text}
-                </div>
-                {!isUser && message.routedIntent && message.routedIntent !== 'GENERAL' ? (
-                  <p className="max-w-[92%] text-[11px] uppercase tracking-[0.18em] text-[#8b7868]">
-                    Suggested area: {message.routedIntent}
-                  </p>
-                ) : null}
-                {message.cards?.length ? (
-                  <div className="max-w-[92%] space-y-2">
-                    {message.cards.map((card) => (
-                      <div
-                        key={`${message.id}-${card.id}`}
-                        className="rounded-2xl border border-[#eee1d5] bg-white p-3 text-xs text-[#5f5145]"
-                      >
-                        <p className="font-semibold text-[#1d140d]">{card.title}</p>
-                        {card.body ? <p className="mt-1">{card.body}</p> : null}
-                        {card.items?.length ? (
-                          <ul className="mt-1 list-disc space-y-1 pl-4">
-                            {card.items.map((item) => (
-                              <li key={item}>{item}</li>
-                            ))}
-                          </ul>
-                        ) : null}
-                        {card.actions?.length ? (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {card.actions.map((action) => (
-                              <button
-                                key={`${card.id}-${action.label}`}
-                                type="button"
-                                className="rounded-full border border-[#dccbbb] bg-[#fbf5ef] px-2 py-1 text-[11px] text-[#4e4035] hover:bg-[#f3e7da]"
-                                onClick={() => {
-                                  void sendPrompt(action.prompt);
-                                }}
-                              >
-                                {action.label}
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      <section aria-label="Compose message" className="rounded-[28px] border border-white/60 bg-white/80 p-4 shadow-[0_24px_80px_rgba(80,48,24,0.08)]">
-        <label htmlFor="assistant-input" className="mb-2 block text-sm font-medium text-[#1d140d]">
-          Ask about workouts, meals, reports, community, store options, or syncing data from your phone
-        </label>
-        <div className="flex gap-2">
-          <textarea
-            id="assistant-input"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            className="min-h-20 w-full rounded-3xl border border-[#dccbbb] bg-[#fffcf8] p-3 text-sm outline-none transition focus:border-[#1d140d]"
-            placeholder="Type your question or context"
-          />
-          <button
-            type="button"
-            className="h-fit rounded-full bg-[#1d140d] px-5 py-3 text-sm text-white disabled:bg-[#ab9a8c]"
-            disabled={!input.trim() || isSending}
-            onClick={() => {
-              void sendPrompt(input);
-            }}
-          >
-            {isSending ? 'Thinking...' : 'Send'}
-          </button>
+                  {isSending ? 'Working...' : 'Send'}
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
-      </section>
+
+        {!embedded ? (
+          <aside className="space-y-4">
+            <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Intent routing</p>
+              <p className="mt-2 text-sm leading-6 text-[#5f5145]">
+                Last detected intent: <span className="font-semibold text-[#1d140d]">{activeIntent}</span>
+              </p>
+              {suggestedRoute ? (
+                <button
+                  type="button"
+                  onClick={openSuggestedWorkspace}
+                  className="mt-4 w-full rounded-full bg-[#1d140d] px-4 py-3 text-sm font-semibold text-white"
+                >
+                  Open {INTENT_LABELS[activeIntent]}
+                </button>
+              ) : (
+                <p className="mt-4 rounded-2xl bg-[#f7efe6] p-3 text-sm leading-6 text-[#5f5145]">
+                  Ask a goal-oriented question and SteadyAI will suggest the right workspace.
+                </p>
+              )}
+            </section>
+
+            <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Try asking</p>
+                <button
+                  type="button"
+                  className="rounded-full border border-[#d8c4b3] px-3 py-1 text-xs text-[#5f5145]"
+                  onClick={() => {
+                    const randomPrompt = STARTER_PROMPTS[Math.floor(Math.random() * STARTER_PROMPTS.length)];
+                    if (randomPrompt) {
+                      void sendPrompt(randomPrompt);
+                    }
+                  }}
+                >
+                  Random
+                </button>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {STARTER_PROMPT_GROUPS.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => setActivePromptGroup(group.id)}
+                    className={`rounded-2xl border p-3 text-left transition ${
+                      activePromptGroup === group.id
+                        ? 'border-[#1d140d] bg-[#1d140d] text-white'
+                        : 'border-[#e6d9cc] bg-[#fffaf5] text-[#1d140d] hover:border-[#c4ad98]'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">{group.label}</span>
+                    <span className={`mt-1 block text-xs ${activePromptGroup === group.id ? 'text-[#f2e8dd]' : 'text-[#77685d]'}`}>
+                      {group.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 space-y-2">
+                {visibleGroup.prompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => {
+                      void sendPrompt(prompt);
+                    }}
+                    className="w-full rounded-2xl border border-[#ead9ca] bg-[#fffaf5] p-3 text-left text-sm leading-5 text-[#4e4035] hover:bg-[#f3e7da]"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {lastAgentMessage?.cards?.length ? (
+              <section className="rounded-[30px] border border-white/70 bg-[#1d140d] p-5 text-white shadow-[0_18px_70px_rgba(29,20,13,0.14)]">
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f3c99f]">Agent output</p>
+                <p className="mt-2 text-sm leading-6 text-[#fff6ee]">
+                  The latest response includes {lastAgentMessage.cards.length} structured card
+                  {lastAgentMessage.cards.length === 1 ? '' : 's'} for summary, reasoning, and next actions.
+                </p>
+              </section>
+            ) : null}
+          </aside>
+        ) : null}
+      </div>
     </section>
+  );
+}
+
+function MessageBubble({
+  message,
+  onAction
+}: {
+  message: ChatMessage;
+  onAction: (prompt: string) => void;
+}) {
+  const isUser = message.role === 'user';
+  const isPending = message.role === 'system';
+
+  return (
+    <article className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`max-w-[92%] rounded-[28px] border p-4 text-sm leading-6 sm:max-w-[78%] ${
+          isUser
+            ? 'border-[#1d140d] bg-[#1d140d] text-white'
+            : isPending
+              ? 'border-[#ead9ca] bg-[#f7efe6] text-[#7a4b28]'
+              : 'border-[#ead9ca] bg-white text-[#1d140d]'
+        }`}
+      >
+        <p className="whitespace-pre-wrap">{message.text}</p>
+        {!isUser && message.routedIntent && message.routedIntent !== 'GENERAL' ? (
+          <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a4b22]">
+            Intent: {message.routedIntent}
+          </p>
+        ) : null}
+        {message.cards?.length ? (
+          <div className="mt-4 space-y-3">
+            {message.cards
+              .filter((card) => card.type !== 'summary')
+              .map((card) => (
+                <div key={`${message.id}-${card.id}`} className="rounded-2xl border border-[#ead9ca] bg-[#fffaf5] p-3 text-xs text-[#5f5145]">
+                  <p className="font-semibold text-[#1d140d]">{card.title}</p>
+                  {card.body ? <p className="mt-1 leading-5">{card.body}</p> : null}
+                  {card.items?.length ? (
+                    <ul className="mt-2 space-y-1">
+                      {card.items.map((item) => (
+                        <li key={item} className="leading-5">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {card.actions?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {card.actions.map((action) => (
+                        <button
+                          key={`${card.id}-${action.label}`}
+                          type="button"
+                          className="rounded-full border border-[#dccbbb] bg-white px-3 py-1.5 text-xs font-medium text-[#4e4035] hover:bg-[#f3e7da]"
+                          onClick={() => onAction(action.prompt)}
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+          </div>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
@@ -268,7 +351,8 @@ function welcomeMessage(): ChatMessage {
   return {
     id: 'system-assistant-hub',
     role: 'system',
-    text: 'Steady AI is ready. Tell me your goal, your meal context, what happened in training, or what data you want to sync from your phone and I will route you.',
+    text:
+      'Start with intent, not navigation. Tell me what you want done: plan a workout, reason about a meal, summarize progress, draft a check-in, or decide what to do next.',
     createdAt: new Date().toISOString()
   };
 }
