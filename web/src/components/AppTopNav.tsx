@@ -48,6 +48,10 @@ export function AppTopNav() {
     ? AUTH_NAV_ITEMS
     : [...CORE_NAV_ITEMS.slice(0, 1), { href: '/onboarding', label: 'Onboarding' }, ...CORE_NAV_ITEMS.slice(1)];
 
+  if (isAuthenticated && pathname.startsWith('/agents')) {
+    return null;
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-[#ead9ca] bg-[#fffaf5]/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">

@@ -3,6 +3,7 @@
 import { useRequireAuth } from '@/auth';
 import { PlatformSidebarNav } from '@/components/PlatformSidebarNav';
 import { PlatformProvider } from '@/features/platform/PlatformProvider';
+import { usePathname } from 'next/navigation';
 
 export default function PlatformLayout({
   children
@@ -10,6 +11,8 @@ export default function PlatformLayout({
   children: React.ReactNode;
 }>) {
   const { isHydrated, isAuthenticated } = useRequireAuth({ redirectTo: '/sign-in' });
+  const pathname = usePathname();
+  const isAssistantShell = pathname.startsWith('/agents');
 
   if (!isHydrated || !isAuthenticated) {
     return (
@@ -24,12 +27,18 @@ export default function PlatformLayout({
 
   return (
     <PlatformProvider>
-      <div className="flex min-h-screen">
-        <PlatformSidebarNav />
-        <main className="flex-1 bg-[radial-gradient(circle_at_top,_rgba(255,240,220,0.95),_rgba(246,236,226,0.88)_38%,_rgba(244,239,232,1)_100%)]">
+      {isAssistantShell ? (
+        <main className="min-h-screen bg-[#f4efe8]">
           {children}
         </main>
-      </div>
+      ) : (
+        <div className="flex min-h-screen">
+          <PlatformSidebarNav />
+          <main className="flex-1 bg-[radial-gradient(circle_at_top,_rgba(255,240,220,0.95),_rgba(246,236,226,0.88)_38%,_rgba(244,239,232,1)_100%)]">
+            {children}
+          </main>
+        </div>
+      )}
     </PlatformProvider>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/auth';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, startTransition, useMemo, useState } from 'react';
 import { requestAgentReply } from './api';
@@ -22,6 +23,15 @@ const INTENT_ROUTES: Partial<Record<AssistantIntent, string>> = {
   CHECK_IN: '/check-in',
   EDUCATION: '/agents'
 };
+
+const WORKSPACE_LINKS = [
+  { href: '/workouts', label: 'Workouts' },
+  { href: '/nutrition', label: 'Nutrition' },
+  { href: '/reports', label: 'Reports' },
+  { href: '/community', label: 'Community' },
+  { href: '/store', label: 'Store' },
+  { href: '/settings', label: 'Settings' }
+];
 
 const INTENT_LABELS: Record<AssistantIntent, string> = {
   FITNESS: 'Workout coach',
@@ -144,9 +154,17 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
                   routes to the right agent, and gives you the next action.
                 </p>
               </div>
-              <div className="rounded-2xl border border-[#ead9ca] bg-white/75 px-4 py-3 text-sm">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#8a4b22]">Active agent</p>
-                <p className="mt-1 font-semibold text-[#1d140d]">{INTENT_LABELS[activeIntent]}</p>
+              <div className="flex flex-col gap-2">
+                <div className="rounded-2xl border border-[#ead9ca] bg-white/75 px-4 py-3 text-sm">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#8a4b22]">Active agent</p>
+                  <p className="mt-1 font-semibold text-[#1d140d]">{INTENT_LABELS[activeIntent]}</p>
+                </div>
+                <Link
+                  href="/"
+                  className="rounded-full border border-[#d8c4b3] bg-white/70 px-4 py-2 text-center text-xs font-semibold text-[#4e4035] hover:bg-white"
+                >
+                  Public site
+                </Link>
               </div>
             </div>
           </header>
@@ -193,6 +211,21 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
 
         {!embedded ? (
           <aside className="space-y-4">
+            <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Workspaces</p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {WORKSPACE_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="rounded-2xl border border-[#ead9ca] bg-[#fffaf5] px-3 py-3 text-center text-xs font-semibold text-[#4e4035] hover:bg-[#f3e7da]"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </section>
+
             <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Intent routing</p>
               <p className="mt-2 text-sm leading-6 text-[#5f5145]">
