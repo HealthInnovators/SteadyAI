@@ -62,6 +62,25 @@ interface AssistantWorkoutPlan {
   exercises: AssistantWorkoutExercise[];
 }
 
+interface AssistantMealOption {
+  name: string;
+  imageUrl: string;
+  calories: number;
+  proteinG: number;
+  prepTimeMin: number;
+  tags: string[];
+  ingredients: string[];
+  steps: string[];
+  note: string;
+}
+
+interface AssistantMealPlan {
+  planId: string;
+  title: string;
+  goal: string;
+  options: AssistantMealOption[];
+}
+
 function pickAssistantRoute(message: string): AssistantRoute {
   const normalized = message.toLowerCase();
 
@@ -73,7 +92,7 @@ function pickAssistantRoute(message: string): AssistantRoute {
     return { type: 'WORKOUT', toolName: 'steadyai.workout_coach' };
   }
 
-  if (/\b(meal|nutrition|grocery|protein|calorie|diet)\b/.test(normalized)) {
+  if (/\b(meal|nutrition|grocery|protein|calorie|diet|lunch|dinner|breakfast|snack|chicken)\b/.test(normalized)) {
     return { type: 'AGENT', agentType: 'MEAL_PLANNER', toolName: 'steadyai.ask_agent' };
   }
 
@@ -93,7 +112,7 @@ function detectAssistantIntent(message: string): AssistantIntent {
   if (/\b(workout|fitness|exercise|training|routine|strength|cardio)\b/.test(normalized)) {
     return 'FITNESS';
   }
-  if (/\b(meal|nutrition|grocery|protein|calorie|diet|macro)\b/.test(normalized)) {
+  if (/\b(meal|nutrition|grocery|protein|calorie|diet|macro|lunch|dinner|breakfast|snack|chicken)\b/.test(normalized)) {
     return 'NUTRITION';
   }
   if (/\b(track|tracking|sync|steps|sleep|heart rate|phone data|health connect|wearable|device data)\b/.test(normalized)) {
@@ -309,6 +328,95 @@ function formatWorkoutReply(plan: AssistantWorkoutPlan): string {
   return `${plan.title}: ${plan.focus}. Estimated time: ${plan.estimatedTotalMin} minutes.\n\n${exercises}\n\nMove at a conversational pace, stop if pain appears, and choose the easier variation when form breaks.`;
 }
 
+function buildMealPlan(prompt: string): AssistantMealPlan {
+  const normalized = prompt.toLowerCase();
+  const wantsLowCalorie = /\b(low[-\s]?calorie|light|lean|calorie deficit|weight loss)\b/.test(normalized);
+  const wantsChicken = /\bchicken\b/.test(normalized);
+  const mealName = /\blunch\b/.test(normalized) ? 'lunch' : /\bdinner\b/.test(normalized) ? 'dinner' : 'meal';
+  const protein = wantsChicken ? 'chicken' : 'lean protein';
+
+  const options: AssistantMealOption[] = [
+    {
+      name: wantsChicken ? 'Lemon Herb Chicken Salad Bowl' : 'Lean Protein Salad Bowl',
+      imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80',
+      calories: wantsLowCalorie ? 390 : 480,
+      proteinG: wantsChicken ? 42 : 34,
+      prepTimeMin: 18,
+      tags: ['high protein', 'low calorie', 'fresh'],
+      ingredients: [
+        `4 oz grilled ${protein}`,
+        '3 cups romaine or mixed greens',
+        '1 cup cucumber, tomato, and bell pepper',
+        '1/4 avocado or 1 tbsp olive-oil vinaigrette',
+        'lemon juice, herbs, pepper, and a pinch of salt'
+      ],
+      steps: [
+        `Season and grill or pan-sear the ${protein}.`,
+        'Build the greens and vegetables in a bowl.',
+        'Slice protein on top and finish with lemon vinaigrette.'
+      ],
+      note: 'Use extra vegetables for volume without adding many calories.'
+    },
+    {
+      name: wantsChicken ? 'Chicken Lettuce Wrap Plate' : 'Protein Lettuce Wrap Plate',
+      imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
+      calories: wantsLowCalorie ? 360 : 450,
+      proteinG: wantsChicken ? 38 : 30,
+      prepTimeMin: 15,
+      tags: ['quick', 'low carb', 'crunchy'],
+      ingredients: [
+        `4 oz shredded ${protein}`,
+        'large romaine or butter lettuce leaves',
+        'shredded carrots and cabbage',
+        '2 tbsp Greek-yogurt herb sauce',
+        'optional: 1 small whole-grain pita if you need more carbs'
+      ],
+      steps: [
+        `Warm the ${protein} with garlic, pepper, and paprika.`,
+        'Fill lettuce leaves with vegetables and protein.',
+        'Drizzle yogurt sauce and serve with optional pita.'
+      ],
+      note: 'Good when you want a lighter lunch that still feels filling.'
+    },
+    {
+      name: wantsChicken ? 'Chicken Vegetable Soup + Side Salad' : 'Vegetable Protein Soup + Side Salad',
+      imageUrl: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
+      calories: wantsLowCalorie ? 330 : 420,
+      proteinG: wantsChicken ? 35 : 28,
+      prepTimeMin: 25,
+      tags: ['warm', 'meal prep', 'filling'],
+      ingredients: [
+        `4 oz diced ${protein}`,
+        '2 cups low-sodium broth',
+        'zucchini, spinach, celery, carrots, and onion',
+        '1/2 cup beans or cauliflower rice',
+        'side salad with vinegar-based dressing'
+      ],
+      steps: [
+        'Simmer broth, vegetables, and seasoning until tender.',
+        `Add cooked ${protein} and warm through.`,
+        'Serve with a simple side salad.'
+      ],
+      note: 'Soup is useful for appetite control because it adds volume and hydration.'
+    }
+  ];
+
+  return {
+    planId: `meal-${Math.random().toString(36).slice(2, 10)}`,
+    title: `${wantsLowCalorie ? 'Low-calorie' : 'Balanced'} ${wantsChicken ? 'chicken ' : ''}${mealName} ideas`,
+    goal: `Create a practical ${mealName} with ${protein}, enough protein to feel satisfied, and simple ingredients.`,
+    options
+  };
+}
+
+function formatMealReply(plan: AssistantMealPlan): string {
+  const options = plan.options
+    .map((option, index) => `${index + 1}. ${option.name} - about ${option.calories} calories, ${option.proteinG}g protein, ${option.prepTimeMin} min prep.`)
+    .join('\n');
+
+  return `${plan.title}. ${plan.goal}\n\n${options}\n\nPick the option that fits your appetite today. Adjust portions based on hunger, activity level, and any medical guidance you follow.`;
+}
+
 export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: AssistantMessageBody }>(
     '/assistant/message',
@@ -423,6 +531,49 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
           intent,
           toolInvocations: [route.toolName],
           agentRunId: run.runId,
+          cards
+        });
+      }
+
+      if (route.agentType === 'MEAL_PLANNER') {
+        const run = await steadyAiInternalRuntime.runAgent<
+          { message: string; intent: AssistantIntent; agentType: AgentChatType },
+          AssistantMealPlan
+        >({
+          agentId: route.toolName as AgentCapabilityId,
+          userId: request.userId,
+          input: { message, intent, agentType: route.agentType },
+          execute: async (context) => {
+            await context.logEvent(AgentEventType.INFO, {
+              message: 'Assistant routed request to meal planning flow',
+              intent,
+              agentType: route.agentType
+            });
+            return buildMealPlan(message);
+          }
+        });
+
+        const mealPlan = run.output;
+        const responseText = formatMealReply(mealPlan);
+        const cards = buildCards({
+          reply: responseText,
+          reasoning: [
+            { title: 'Route', detail: 'Routed to nutrition support because the prompt asked for a meal idea.' },
+            { title: 'Plan', detail: `Built ${mealPlan.options.length} practical meal options with calories and protein.` },
+            { title: 'Visuals', detail: 'Included meal cards with food images and prep details.' }
+          ],
+          route,
+          intent
+        });
+
+        return reply.status(200).send({
+          reply: responseText,
+          disclaimer: 'SteadyAI guidance is educational and supportive, not medical advice.',
+          routedTo: route.agentType,
+          intent,
+          toolInvocations: [route.toolName],
+          agentRunId: run.runId,
+          mealPlan,
           cards
         });
       }

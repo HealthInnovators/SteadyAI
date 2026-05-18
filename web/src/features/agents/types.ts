@@ -42,6 +42,25 @@ export interface WorkoutPlan {
   exercises: WorkoutExercise[];
 }
 
+export interface MealOption {
+  name: string;
+  imageUrl: string;
+  calories: number;
+  proteinG: number;
+  prepTimeMin: number;
+  tags: string[];
+  ingredients: string[];
+  steps: string[];
+  note: string;
+}
+
+export interface MealPlan {
+  planId: string;
+  title: string;
+  goal: string;
+  options: MealOption[];
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'agent' | 'system';
@@ -50,5 +69,6 @@ export interface ChatMessage {
   reasoning?: ReasoningStep[];
   cards?: AssistantCard[];
   workoutPlan?: WorkoutPlan;
+  mealPlan?: MealPlan;
   createdAt: string;
 }

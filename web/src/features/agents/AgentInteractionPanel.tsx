@@ -211,6 +211,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
         reasoning: reply.reasoning,
         cards: reply.cards,
         workoutPlan: reply.workoutPlan,
+        mealPlan: reply.mealPlan,
         createdAt: new Date().toISOString()
       };
       setActiveIntent(nextIntent);
@@ -553,6 +554,7 @@ function MessageBubble({
         {!isUser && message.workoutPlan ? (
           <WorkoutPlanCard plan={message.workoutPlan} logState={workoutLogState} onLogWorkout={onLogWorkout} />
         ) : null}
+        {!isUser && message.mealPlan ? <MealPlanCard plan={message.mealPlan} /> : null}
         {message.cards?.length ? (
           <div className="mt-4 space-y-3">
             {message.cards
@@ -598,6 +600,77 @@ function MessageBubble({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function MealPlanCard({ plan }: { plan: NonNullable<ChatMessage['mealPlan']> }) {
+  return (
+    <section className="mt-4 overflow-hidden rounded-[26px] border border-[#d8c4b3] bg-[#fffaf5] shadow-[0_18px_44px_rgba(80,48,24,0.12)]">
+      <div className="bg-[linear-gradient(135deg,_#26351f,_#7a4b28)] p-4 text-white">
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#f5d7b8]">Meal ideas</p>
+        <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em]">{plan.title}</h3>
+        <p className="mt-2 text-sm leading-6 text-[#fff4e8]">{plan.goal}</p>
+      </div>
+
+      <div className="grid gap-3 p-3 lg:grid-cols-3">
+        {plan.options.map((option, index) => (
+          <article key={`${plan.planId}-${option.name}-${index}`} className="overflow-hidden rounded-[22px] border border-[#ead9ca] bg-white shadow-[0_10px_24px_rgba(80,48,24,0.08)]">
+            <div className="relative h-40 overflow-hidden bg-[#26351f]">
+              <img
+                className="h-full w-full object-cover"
+                src={option.imageUrl}
+                alt={option.name}
+                loading="lazy"
+              />
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                <p className="text-sm font-semibold leading-5 text-white">{option.name}</p>
+              </div>
+            </div>
+
+            <div className="p-3">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
+                  <p className="text-sm font-bold text-[#1d140d]">{option.calories}</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">cal</p>
+                </div>
+                <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
+                  <p className="text-sm font-bold text-[#1d140d]">{option.proteinG}g</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">protein</p>
+                </div>
+                <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
+                  <p className="text-sm font-bold text-[#1d140d]">{option.prepTimeMin}</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">min</p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {option.tags.map((tag) => (
+                  <span key={tag} className="rounded-full bg-[#edf4e8] px-2 py-1 text-[11px] font-semibold text-[#34512a]">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a4b22]">Ingredients</p>
+              <ul className="mt-2 space-y-1 text-xs leading-5 text-[#5f5145]">
+                {option.ingredients.slice(0, 4).map((ingredient) => (
+                  <li key={ingredient}>{ingredient}</li>
+                ))}
+              </ul>
+
+              <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a4b22]">Quick prep</p>
+              <ol className="mt-2 space-y-1 text-xs leading-5 text-[#5f5145]">
+                {option.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+
+              <p className="mt-3 rounded-2xl bg-[#fff7ed] p-3 text-xs leading-5 text-[#5f5145]">{option.note}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
