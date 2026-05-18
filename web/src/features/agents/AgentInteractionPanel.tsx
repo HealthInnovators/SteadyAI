@@ -356,8 +356,17 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="border-t border-[#ead9ca] bg-white/72 p-4 sm:p-5">
-            <div className="rounded-[28px] border border-[#d8c4b3] bg-[#fffcf8] p-3 shadow-inner">
+          <form
+            onSubmit={handleSubmit}
+            className="border-t border-[#ead9ca] bg-[linear-gradient(180deg,_rgba(255,250,245,0.72),_rgba(255,237,213,0.92))] p-4 sm:p-5"
+          >
+            <div className="relative rounded-[32px] border-2 border-[#8a4b22] bg-[#fffcf8] p-4 shadow-[0_0_0_6px_rgba(245,201,158,0.28),0_24px_60px_rgba(80,48,24,0.18)]">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Ask SteadyAI here</p>
+                <p className="rounded-full bg-[#1d140d] px-3 py-1 text-[11px] font-semibold text-white">
+                  Type or speak
+                </p>
+              </div>
               <textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
@@ -367,7 +376,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
                     void sendPrompt(input);
                   }
                 }}
-                className="min-h-24 w-full resize-none bg-transparent p-2 text-base text-[#1d140d] outline-none placeholder:text-[#9a897a]"
+                className="min-h-28 w-full resize-none rounded-[22px] border border-[#ead9ca] bg-white p-4 text-lg leading-7 text-[#1d140d] outline-none ring-[#8a4b22]/20 transition placeholder:text-[#9a897a] focus:border-[#8a4b22] focus:ring-4"
                 placeholder="Example: Create a low-impact workout, log my lunch, summarize my week, or draft a community check-in..."
               />
               <div className="flex flex-col gap-3 border-t border-[#ead9ca] pt-3 sm:flex-row sm:items-center sm:justify-between">
