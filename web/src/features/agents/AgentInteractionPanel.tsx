@@ -282,9 +282,6 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
               <Link href="/settings" className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#4e4035] hover:bg-[#f3e7da]">
                 Settings
               </Link>
-              <Link href="/" className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#7a6555] hover:bg-[#f3e7da]">
-                Public site
-              </Link>
             </div>
           </aside>
         ) : null}
