@@ -4,6 +4,18 @@ import { useCommunity } from '../CommunityProvider';
 import { useState } from 'react';
 import type { PostType } from '../types';
 
+const POST_TYPE_LABELS: Record<PostType, string> = {
+    WIN: 'Win',
+    QUESTION: 'Question',
+    CHECK_IN: 'Check-in'
+};
+
+const PROMPTS: Record<PostType, string[]> = {
+    WIN: ['I showed up today by...', 'A small win I want to remember is...', 'I made progress when...'],
+    QUESTION: ['How do you handle...', 'What helps you stay consistent with...', 'Any simple ideas for...'],
+    CHECK_IN: ['Today I completed...', 'My energy today was...', 'One thing I will do next is...']
+};
+
 export function PostCreator() {
     const { createPost, isCreating } = useCommunity();
     const [content, setContent] = useState('');
@@ -25,17 +37,33 @@ export function PostCreator() {
     };
     
     return (
-        <div className="rounded-2xl border border-white/70 bg-white/50 p-6 shadow-sm">
-            <h3 className="text-xl font-semibold text-[#1d140d]">Create a Post</h3>
+        <section className="rounded-[34px] border border-white/80 bg-[linear-gradient(135deg,_#1d140d,_#7a4b28)] p-5 text-white shadow-[0_22px_70px_rgba(80,48,24,0.18)] sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f1d6b7]">Share with your group</p>
+            <h3 className="mt-2 text-2xl font-bold tracking-[-0.04em]">Create a Post</h3>
+            <p className="mt-2 text-sm leading-6 text-[#fff4e7]">Keep it short and human. Wins, questions, and check-ins all count.</p>
             <div className="mt-4">
-                <div className="flex gap-2 mb-3">
+                <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
                     {(['WIN', 'QUESTION', 'CHECK_IN'] as PostType[]).map(type => (
                         <button 
                             key={type}
                             onClick={() => setPostType(type)}
-                            className={`px-3 py-1 text-sm rounded-full ${postType === type ? 'bg-[#1d140d] text-white' : 'bg-white/80'}`}
+                            className={`shrink-0 rounded-full border px-3 py-2 text-sm font-semibold ${
+                                postType === type ? 'border-[#fffaf5] bg-[#fffaf5] text-[#1d140d]' : 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+                            }`}
                         >
-                            {type.charAt(0) + type.slice(1).toLowerCase()}
+                            {POST_TYPE_LABELS[type]}
+                        </button>
+                    ))}
+                </div>
+                <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+                    {PROMPTS[postType].map(prompt => (
+                        <button
+                            key={prompt}
+                            type="button"
+                            onClick={() => setContent(prompt)}
+                            className="shrink-0 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                        >
+                            {prompt}
                         </button>
                     ))}
                 </div>
@@ -47,17 +75,17 @@ export function PostCreator() {
                         postType === 'QUESTION' ? "What's on your mind?" :
                         "How was your check-in?"
                     }
-                    className="w-full min-h-24 p-3 rounded-lg border border-[#dccbbb] bg-white/80"
+                    className="min-h-32 w-full resize-none rounded-[24px] border border-white/20 bg-white/95 p-4 text-base leading-7 text-[#1d140d] outline-none ring-white/20 transition placeholder:text-[#9a897a] focus:border-white focus:ring-4"
                 />
                 <button
                     onClick={handleCreatePost}
                     disabled={isCreating}
-                    className="mt-3 w-full rounded-full bg-[#1d140d] px-5 py-3 text-sm font-medium text-white disabled:bg-[#ab9a8c]"
+                    className="mt-3 w-full rounded-full bg-[#fffaf5] px-5 py-4 text-sm font-bold text-[#1d140d] shadow-[0_12px_28px_rgba(29,20,13,0.18)] disabled:bg-[#ab9a8c]"
                 >
                     {isCreating ? 'Posting...' : 'Post to Feed'}
                 </button>
-                {error && <p className="mt-2 text-xs text-center text-red-700">{error}</p>}
+                {error && <p className="mt-3 text-sm font-semibold text-red-100">{error}</p>}
             </div>
-        </div>
+        </section>
     );
 }
