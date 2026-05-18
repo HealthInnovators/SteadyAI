@@ -10,7 +10,7 @@ interface AgentReplyResponse {
   cards?: AssistantCard[];
 }
 
-const AGENT_REQUEST_TIMEOUT_MS = 12000;
+const AGENT_REQUEST_TIMEOUT_MS = 30000;
 
 export async function requestAgentReply(
   prompt: string,

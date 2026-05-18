@@ -104,12 +104,19 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
       if (nextIntent !== 'GENERAL') {
         onIntentDetected?.(nextIntent);
       }
-    } catch {
+    } catch (error) {
+      const fallbackText =
+        error instanceof DOMException && error.name === 'AbortError'
+          ? 'The assistant request timed out. Please retry in a few seconds.'
+          : error instanceof Error && error.message
+            ? `Assistant request failed: ${error.message}`
+            : 'Assistant is temporarily unavailable. Please retry in a few seconds.';
+
       setMessages((prev) =>
         prev.filter((message) => message.id !== pendingId).concat({
           id: `fallback-${Date.now()}`,
           role: 'agent',
-          text: 'Assistant is temporarily unavailable. Please retry in a few seconds.',
+          text: fallbackText,
           createdAt: new Date().toISOString()
         })
       );
