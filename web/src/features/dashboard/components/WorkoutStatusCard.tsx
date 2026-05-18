@@ -33,9 +33,9 @@ const DEFAULT_WORKOUT_PLAN: WorkoutPlan = {
 // This is a simplified version of the StatTile from the original page.
 function StatTile({ label, value }: { label: string; value: string }) {
     return (
-      <div className="rounded-lg border border-white/70 bg-white/50 p-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-[#7a4b28]">{label}</p>
-        <p className="mt-1 text-xl font-semibold">{value}</p>
+      <div className="rounded-[22px] border border-white/80 bg-white/72 p-4">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a4b28]">{label}</p>
+        <p className="mt-2 text-2xl font-bold tracking-[-0.04em] text-[#1d140d]">{value}</p>
       </div>
     );
   }
@@ -83,32 +83,34 @@ export function WorkoutStatusCard() {
 
   if (!workoutPlan) {
     return (
-        <div className="rounded-2xl border border-white/70 bg-white/50 p-4 shadow-sm">
-            <h3 className="text-lg font-semibold">Today&apos;s Workout</h3>
-            <p className="mt-2 text-sm text-[#5f5145]">No workout scheduled for today.</p>
-            <Link href="/workouts" className="mt-4 inline-block rounded-full bg-[#1d140d] px-4 py-2 text-sm text-white">
-                Explore Workouts
-            </Link>
-        </div>
+      <section className="rounded-[32px] border border-white/80 bg-[#fffaf5]/82 p-5 shadow-[0_18px_60px_rgba(80,48,24,0.1)]">
+        <h3 className="text-2xl font-bold tracking-[-0.04em] text-[#1d140d]">Today&apos;s Workout</h3>
+        <p className="mt-2 text-sm leading-6 text-[#5f5145]">No workout scheduled for today.</p>
+        <Link href="/agents" className="mt-4 inline-flex rounded-full bg-[#1d140d] px-5 py-3 text-sm font-semibold text-white">
+          Ask for a workout
+        </Link>
+      </section>
     )
   }
 
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/50 p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Today&apos;s Workout</h3>
-        <Link href="/workouts" className="text-sm font-medium text-[#7a4b28] hover:underline">
-          View Plan &rarr;
+    <section className="rounded-[34px] border border-white/80 bg-[linear-gradient(135deg,_#1d140d,_#7a4b28)] p-5 text-white shadow-[0_22px_70px_rgba(80,48,24,0.18)] sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f1d6b7]">Today&apos;s plan</p>
+          <h3 className="mt-2 text-2xl font-bold tracking-[-0.04em]">{workoutPlan.title}</h3>
+        </div>
+        <Link href="/agents" className="inline-flex justify-center rounded-full bg-[#fffaf5] px-4 py-2 text-sm font-semibold text-[#1d140d]">
+          Adjust plan
         </Link>
       </div>
-      <p className="mt-1 text-sm text-[#5f5145]">{workoutPlan.title}</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <StatTile label="Exercises" value={String(workoutPlan.exercises.length)} />
         <StatTile label="Est. Time" value={`${workoutPlan.exercises.reduce((sum, item) => sum + item.durationMin, 0)} min`} />
       </div>
-      <div className="mt-4">
-        <p className="text-sm font-medium text-center text-[#4e4035]">How did it feel?</p>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+      <div className="mt-5 rounded-[26px] border border-white/15 bg-white/10 p-4 backdrop-blur">
+        <p className="text-sm font-semibold text-[#fff4e7]">How did it feel?</p>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
         {[
             { key: 'TOO_EASY', label: 'Too easy' },
             { key: 'JUST_RIGHT', label: 'Just right' },
@@ -119,19 +121,19 @@ export function WorkoutStatusCard() {
             type="button"
             onClick={() => saveWorkoutSession(option.key as WorkoutFeedback)}
             disabled={isWorkoutSaving}
-            className={`rounded-lg border px-3 py-2 text-xs transition ${
+            className={`rounded-full border px-4 py-3 text-sm font-semibold transition ${
                 workoutFeedback === option.key
-                ? 'border-[#1d140d] bg-[#1d140d] text-white'
-                : 'border-[#d8c4b3] bg-white/80 text-[#4e4035] hover:bg-[#f6ede4]'
+                ? 'border-[#fffaf5] bg-[#fffaf5] text-[#1d140d]'
+                : 'border-white/25 bg-white/10 text-white hover:bg-white/20'
             }`}
             >
             {isWorkoutSaving && workoutFeedback === option.key ? 'Saving...' : option.label}
             </button>
         ))}
         </div>
-        {workoutSaveMessage && <p className="mt-2 text-xs text-center text-emerald-700">{workoutSaveMessage}</p>}
-        {workoutSaveError && <p className="mt-2 text-xs text-center text-red-700">{workoutSaveError}</p>}
+        {workoutSaveMessage && <p className="mt-3 text-sm font-semibold text-emerald-100">{workoutSaveMessage}</p>}
+        {workoutSaveError && <p className="mt-3 text-sm font-semibold text-red-100">{workoutSaveError}</p>}
       </div>
-    </div>
+    </section>
   );
 }

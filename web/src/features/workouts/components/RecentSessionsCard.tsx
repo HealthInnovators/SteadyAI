@@ -6,9 +6,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 function HistoryStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-white/70 bg-white/50 p-4 text-center">
-      <p className="text-3xl font-semibold text-[#1d140d]">{value}</p>
-      <p className="mt-1 text-xs font-medium uppercase tracking-wider text-[#7a4b28]">{label}</p>
+    <div className="rounded-[22px] border border-white/80 bg-white/72 p-4 shadow-[0_10px_32px_rgba(80,48,24,0.07)]">
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#7a4b28]">{label}</p>
+      <p className="mt-2 text-3xl font-bold tracking-[-0.04em] text-[#1d140d]">{value}</p>
     </div>
   );
 }
@@ -35,22 +35,44 @@ export function RecentSessionsCard() {
   }, [api]);
 
   if (loading) {
-    return <div className="p-4 text-center">Loading workout history...</div>;
+    return (
+      <div className="animate-pulse rounded-[32px] border border-white/80 bg-white/60 p-5">
+        <div className="h-4 w-36 rounded-full bg-[#ead9ca]" />
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="h-24 rounded-[22px] bg-[#f3e7da]" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/50 p-6 shadow-sm">
-      <h3 className="text-xl font-semibold text-[#1d140d]">Recent Activity (Last 30 Days)</h3>
+    <section className="rounded-[32px] border border-white/80 bg-[#fffaf5]/82 p-4 shadow-[0_18px_60px_rgba(80,48,24,0.1)] sm:p-6">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Last 30 days</p>
+          <h3 className="mt-1 text-2xl font-bold tracking-[-0.04em] text-[#1d140d]">Recent Activity</h3>
+        </div>
+        {history?.lastFeedback ? (
+          <p className="rounded-full bg-[#f3e7da] px-3 py-1 text-xs font-semibold capitalize text-[#7a4b28]">
+            Last felt {history.lastFeedback.replace('_', ' ').toLowerCase()}
+          </p>
+        ) : null}
+      </div>
       {history && history.sessions > 0 ? (
-        <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <HistoryStat label="Sessions" value={history.sessions} />
           <HistoryStat label="Avg. Duration" value={`${Math.round(history.avgDurationMinutes)} min`} />
           <HistoryStat label="Completion" value={`${Math.round(history.avgCompletionRate * 100)}%`} />
           <HistoryStat label="Current Streak" value={`${history.streakDays} days`} />
         </div>
       ) : (
-        <p className="mt-4 text-sm text-[#5f5145]">No recent workout sessions logged. Let&apos;s get moving!</p>
+        <div className="rounded-[24px] border border-dashed border-[#d8c4b3] bg-white/60 p-5">
+          <p className="text-base font-semibold text-[#1d140d]">No recent workout sessions logged.</p>
+          <p className="mt-2 text-sm leading-6 text-[#5f5145]">Ask SteadyAI for a realistic session, then save how it felt here.</p>
+        </div>
       )}
-    </div>
+    </section>
   );
 }

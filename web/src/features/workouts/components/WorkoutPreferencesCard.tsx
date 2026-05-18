@@ -6,9 +6,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 function PreferenceItem({ label, value }: { label: string; value: string | null | undefined }) {
   return (
-    <div>
-      <p className="text-xs font-medium uppercase text-[#7a4b28]">{label}</p>
-      <p className="text-base text-[#4e4035]">{value || 'Not set'}</p>
+    <div className="rounded-[20px] border border-white/80 bg-white/72 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a4b28]">{label}</p>
+      <p className="mt-2 text-base font-semibold text-[#4e4035]">{value || 'Not set'}</p>
     </div>
   );
 }
@@ -35,22 +35,36 @@ export function WorkoutPreferencesCard() {
   }, [api]);
 
   if (loading) {
-    return <div className="p-4 text-center">Loading preferences...</div>;
+    return (
+      <div className="animate-pulse rounded-[32px] border border-white/80 bg-white/60 p-5">
+        <div className="h-4 w-32 rounded-full bg-[#ead9ca]" />
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="h-20 rounded-[20px] bg-[#f3e7da]" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/50 p-6 shadow-sm">
-      <h3 className="text-xl font-semibold text-[#1d140d]">Workout Preferences</h3>
+    <section className="rounded-[32px] border border-white/80 bg-[#fffaf5]/82 p-4 shadow-[0_18px_60px_rgba(80,48,24,0.1)] sm:p-6">
+      <div className="mb-4">
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Personalization</p>
+        <h3 className="mt-1 text-2xl font-bold tracking-[-0.04em] text-[#1d140d]">Workout Preferences</h3>
+      </div>
       {preferences ? (
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <PreferenceItem label="Preferred Duration" value={preferences.preferredDurationMinutes ? `${preferences.preferredDurationMinutes} min` : null} />
           <PreferenceItem label="Preferred Impact" value={preferences.preferredImpact} />
           <PreferenceItem label="Equipment" value={preferences.equipment} />
           <PreferenceItem label="Auto-post Check-in" value={preferences.autoPostCheckIn ? 'Enabled' : 'Disabled'} />
         </div>
       ) : (
-        <p className="mt-4 text-sm text-[#5f5145]">You haven&apos;t set any workout preferences yet.</p>
+        <p className="rounded-[24px] border border-dashed border-[#d8c4b3] bg-white/60 p-5 text-sm leading-6 text-[#5f5145]">
+          You haven&apos;t set any workout preferences yet. Ask SteadyAI to remember your preferred duration, impact, and equipment.
+        </p>
       )}
-    </div>
+    </section>
   );
 }
