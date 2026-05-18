@@ -55,9 +55,9 @@ type SpeechRecognitionWindow = Window &
   };
 
 const PRIMARY_NAV_LINKS = [
-  { href: '/reports', label: 'Reports' },
-  { href: '/community', label: 'Community' },
-  { href: '/store', label: 'Store' }
+  { href: '/reports', label: 'Reports', icon: 'reports' },
+  { href: '/community', label: 'Community', icon: 'community' },
+  { href: '/store', label: 'Store', icon: 'store' }
 ];
 
 export function AgentInteractionPanel({ embedded = false, onIntentDetected }: AgentInteractionPanelProps) {
@@ -67,6 +67,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
   const [isVoiceSupported, setIsVoiceSupported] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
+  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [workoutLogState, setWorkoutLogState] = useState<Record<string, { status: 'saving' | 'saved' | 'error'; message: string }>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage()]);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -254,33 +255,65 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
     <section className={shellClass}>
       <div className={embedded ? 'mx-auto flex min-h-[72vh] w-full max-w-5xl flex-col' : 'flex min-h-screen w-full'}>
         {!embedded ? (
-          <aside className="hidden w-72 shrink-0 flex-col border-r border-[#e2d6c9] bg-[#fbf7f1] px-4 py-5 md:flex">
-            <Link href="/agents" className="rounded-2xl px-3 py-2 text-lg font-semibold tracking-[-0.03em] text-[#1d140d]">
-              SteadyAI
-            </Link>
+          <aside
+            className={`hidden shrink-0 flex-col border-r border-[#e2d6c9] bg-[#fbf7f1] px-3 py-5 transition-[width] duration-200 md:flex ${
+              isSidebarCollapsed ? 'w-20' : 'w-72'
+            }`}
+          >
+            <div className={`flex items-center gap-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+              {!isSidebarCollapsed ? (
+                <Link href="/agents" className="rounded-2xl px-3 py-2 text-lg font-semibold tracking-[-0.03em] text-[#1d140d]">
+                  SteadyAI
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((value) => !value)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#d8c4b3] bg-white text-[#4e4035] hover:bg-[#f3e7da]"
+                aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-expanded={!isSidebarCollapsed}
+              >
+                <Icon name="menu" />
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => {
                 setMessages([welcomeMessage()]);
               }}
-              className="mt-5 rounded-2xl border border-[#d8c4b3] bg-white px-4 py-3 text-left text-sm font-semibold text-[#4e4035] hover:bg-[#f3e7da]"
+              className={`mt-5 inline-flex items-center gap-3 rounded-2xl border border-[#d8c4b3] bg-white px-4 py-3 text-sm font-semibold text-[#4e4035] hover:bg-[#f3e7da] ${
+                isSidebarCollapsed ? 'justify-center px-0' : 'text-left'
+              }`}
+              aria-label="New chat"
             >
-              New chat
+              <Icon name="new-chat" />
+              {!isSidebarCollapsed ? <span>New chat</span> : null}
             </button>
             <nav className="mt-6 space-y-1">
               {PRIMARY_NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#4e4035] hover:bg-[#f3e7da]"
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#4e4035] hover:bg-[#f3e7da] ${
+                    isSidebarCollapsed ? 'justify-center px-0' : ''
+                  }`}
+                  aria-label={link.label}
                 >
-                  {link.label}
+                  <Icon name={link.icon} />
+                  {!isSidebarCollapsed ? <span>{link.label}</span> : null}
                 </Link>
               ))}
             </nav>
             <div className="mt-auto space-y-1 border-t border-[#ead9ca] pt-4">
-              <Link href="/settings" className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#4e4035] hover:bg-[#f3e7da]">
-                Settings
+              <Link
+                href="/settings"
+                className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#4e4035] hover:bg-[#f3e7da] ${
+                  isSidebarCollapsed ? 'justify-center px-0' : ''
+                }`}
+                aria-label="Settings"
+              >
+                <Icon name="settings" />
+                {!isSidebarCollapsed ? <span>Settings</span> : null}
               </Link>
             </div>
           </aside>
@@ -383,8 +416,9 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="rounded-full border border-[#d8c4b3] bg-white/80 px-4 py-2 text-sm font-semibold text-[#4e4035] shadow-sm hover:bg-[#f3e7da]"
+                    className="inline-flex items-center gap-2 rounded-full border border-[#d8c4b3] bg-white/80 px-4 py-2 text-sm font-semibold text-[#4e4035] shadow-sm hover:bg-[#f3e7da]"
                   >
+                    <Icon name={link.icon} />
                     {link.label}
                   </Link>
                 ))}
@@ -478,6 +512,60 @@ function MessageBubble({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function Icon({ name }: { name: string }) {
+  const className = "h-5 w-5 shrink-0";
+
+  if (name === 'menu') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'new-chat') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'reports') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 19V5M5 19h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M9 16v-5M13 16V8M17 16v-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'community') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="currentColor" strokeWidth="2" />
+        <path d="M3.5 19c.8-3.2 2.4-5 4.5-5s3.7 1.8 4.5 5M12.5 18c.7-2.4 1.9-3.7 3.5-3.7 1.7 0 3 1.3 3.7 3.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'store') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 10h12l-1 10H7L6 10Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M9 10V8a3 3 0 0 1 6 0v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M19.4 15a8 8 0 0 0 .1-1l2-1.5-2-3.5-2.4 1a7.3 7.3 0 0 0-1.7-1L15 6.5h-4L10.6 9a7.3 7.3 0 0 0-1.7 1L6.5 9l-2 3.5 2 1.5a8 8 0 0 0 .1 2l-2 1.5 2 3.5 2.4-1a7.3 7.3 0 0 0 1.7 1l.3 2.5h4l.4-2.5a7.3 7.3 0 0 0 1.7-1l2.4 1 2-3.5-2.1-1.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
   );
 }
 
