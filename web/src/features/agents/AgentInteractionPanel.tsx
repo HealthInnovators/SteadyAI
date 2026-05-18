@@ -560,7 +560,7 @@ function MessageBubble({
         {message.cards?.length ? (
           <div className="mt-4 space-y-3">
             {message.cards
-              .filter((card) => card.type !== 'summary')
+              .filter((card) => card.type !== 'summary' && card.type !== 'reasoning')
               .map((card) => (
                 <div key={`${message.id}-${card.id}`} className="rounded-2xl border border-[#ead9ca] bg-[#fffaf5] p-3 text-xs text-[#5f5145]">
                   <p className="font-semibold text-[#1d140d]">{card.title}</p>
