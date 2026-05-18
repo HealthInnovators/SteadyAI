@@ -12,7 +12,7 @@ const CORE_NAV_ITEMS: Array<{ href: string; label: string }> = [
 ];
 
 const AUTH_NAV_ITEMS: Array<{ href: string; label: string }> = [
-  { href: '/agents', label: 'AI Coach' },
+  { href: '/ai-coach', label: 'AI Coach' },
   { href: '/community', label: 'Community' },
   { href: '/reports', label: 'Reports' }
 ];
@@ -44,7 +44,7 @@ export function AppTopNav() {
     ? AUTH_NAV_ITEMS
     : [...CORE_NAV_ITEMS.slice(0, 1), { href: '/onboarding', label: 'Onboarding' }, ...CORE_NAV_ITEMS.slice(1)];
 
-  if (isAuthenticated && pathname.startsWith('/agents')) {
+  if (isAuthenticated && (pathname.startsWith('/ai-coach') || pathname.startsWith('/agents'))) {
     return null;
   }
 

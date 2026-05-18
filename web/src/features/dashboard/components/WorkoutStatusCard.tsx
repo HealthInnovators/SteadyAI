@@ -86,7 +86,7 @@ export function WorkoutStatusCard() {
       <section className="rounded-[32px] border border-white/80 bg-[#fffaf5]/82 p-5 shadow-[0_18px_60px_rgba(80,48,24,0.1)]">
         <h3 className="text-2xl font-bold tracking-[-0.04em] text-[#1d140d]">Today&apos;s Workout</h3>
         <p className="mt-2 text-sm leading-6 text-[#5f5145]">No workout scheduled for today.</p>
-        <Link href="/agents" className="mt-4 inline-flex rounded-full bg-[#1d140d] px-5 py-3 text-sm font-semibold text-white">
+        <Link href="/ai-coach" className="mt-4 inline-flex rounded-full bg-[#1d140d] px-5 py-3 text-sm font-semibold text-white">
           Ask for a workout
         </Link>
       </section>
@@ -100,7 +100,7 @@ export function WorkoutStatusCard() {
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f1d6b7]">Today&apos;s plan</p>
           <h3 className="mt-2 text-2xl font-bold tracking-[-0.04em]">{workoutPlan.title}</h3>
         </div>
-        <Link href="/agents" className="inline-flex justify-center rounded-full bg-[#fffaf5] px-4 py-2 text-sm font-semibold text-[#1d140d]">
+        <Link href="/ai-coach" className="inline-flex justify-center rounded-full bg-[#fffaf5] px-4 py-2 text-sm font-semibold text-[#1d140d]">
           Adjust plan
         </Link>
       </div>

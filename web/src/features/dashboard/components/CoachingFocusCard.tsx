@@ -10,15 +10,15 @@ function mapIntentToFocus(intent: AssistantIntent): string {
     switch (intent) {
       case 'FITNESS':
       case 'NUTRITION':
-        return '/agents';
+        return '/ai-coach';
       case 'COMMUNITY':
         return '/community';
       case 'REPORTS':
         return '/reports';
       case 'STORE':
-        return '/agents';
+        return '/ai-coach';
       default:
-        return '/agents';
+        return '/ai-coach';
     }
 }
 

@@ -42,7 +42,7 @@ export default function ReportsPage() {
             </p>
           </div>
           <Link
-            href="/agents"
+            href="/ai-coach"
             className="inline-flex justify-center rounded-full bg-[#1d140d] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)]"
           >
             Ask coach what to do next
@@ -65,7 +65,7 @@ export default function ReportsPage() {
           <div className="rounded-[30px] border-2 border-dashed border-[#d8c4b3] bg-white/60 p-8 text-center">
             <p className="text-base font-semibold text-[#1d140d]">Not enough data to generate reports yet.</p>
             <p className="mt-2 text-sm text-[#5f5145]">Log workouts, meals, and check-ins to build your first progress snapshot.</p>
-            <Link href="/agents" className="mt-5 inline-flex rounded-full bg-[#1d140d] px-5 py-3 text-sm font-semibold text-white">
+            <Link href="/ai-coach" className="mt-5 inline-flex rounded-full bg-[#1d140d] px-5 py-3 text-sm font-semibold text-white">
               Start with the coach
             </Link>
           </div>
@@ -87,7 +87,7 @@ function ProgressSnapshot({ reportData }: { reportData: ReportsOverview }) {
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">{nextAction.title}</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#fff4e7]">{nextAction.body}</p>
         </div>
-        <Link href="/agents" className="inline-flex justify-center rounded-full bg-[#fffaf5] px-5 py-3 text-sm font-semibold text-[#1d140d]">
+        <Link href="/ai-coach" className="inline-flex justify-center rounded-full bg-[#fffaf5] px-5 py-3 text-sm font-semibold text-[#1d140d]">
           Get a plan
         </Link>
       </div>

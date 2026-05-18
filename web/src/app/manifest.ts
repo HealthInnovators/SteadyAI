@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'SteadyAI Health Coach',
     short_name: 'SteadyAI',
     description: 'Mobile-first fitness, nutrition, progress tracking, and accountability coaching.',
-    start_url: '/agents',
+    start_url: '/ai-coach',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
@@ -37,7 +37,7 @@ export default function manifest(): MetadataRoute.Manifest {
         name: 'Open Coach',
         short_name: 'Coach',
         description: 'Ask SteadyAI for your next workout, meal, or progress step.',
-        url: '/agents',
+        url: '/ai-coach',
         icons: [{ src: '/favicon.svg', sizes: '64x64', type: 'image/svg+xml' }]
       }
     ]

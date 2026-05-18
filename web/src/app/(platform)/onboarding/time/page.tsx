@@ -44,7 +44,7 @@ export default function TimePage() {
             onClick={async () => {
               try {
                 await submit();
-                router.replace('/agents');
+                router.replace('/ai-coach');
               } catch {
                 // Error state is handled in onboarding context.
               }

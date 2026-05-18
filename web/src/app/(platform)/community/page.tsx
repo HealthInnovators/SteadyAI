@@ -54,7 +54,7 @@ export default function CommunityPage() {
                     </p>
                   </div>
                   <Link
-                    href="/agents"
+                    href="/ai-coach"
                     className="inline-flex justify-center rounded-full bg-[#1d140d] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)]"
                   >
                     Draft a post with coach

@@ -12,7 +12,7 @@ export default function PlatformLayout({
 }>) {
   const { isHydrated, isAuthenticated } = useRequireAuth({ redirectTo: '/sign-in' });
   const pathname = usePathname();
-  const isAssistantShell = pathname.startsWith('/agents');
+  const isAssistantShell = pathname.startsWith('/ai-coach') || pathname.startsWith('/agents');
 
   if (!isHydrated || !isAuthenticated) {
     return (

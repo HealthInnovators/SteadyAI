@@ -60,7 +60,7 @@ const PRIMARY_NAV_LINKS = [
 ];
 
 const MOBILE_NAV_LINKS = [
-  { href: '/agents', label: 'Coach', icon: 'coach', active: true },
+  { href: '/ai-coach', label: 'Coach', icon: 'coach', active: true },
   { href: '/reports', label: 'Reports', icon: 'reports' },
   { href: '/community', label: 'Community', icon: 'community' },
   { href: '/settings', label: 'Settings', icon: 'settings' }
@@ -268,7 +268,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
           >
             <div className={`flex items-center gap-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
               {!isSidebarCollapsed ? (
-                <Link href="/agents" className="rounded-2xl px-3 py-2 text-lg font-semibold tracking-[-0.03em] text-[#1d140d]">
+                <Link href="/ai-coach" className="rounded-2xl px-3 py-2 text-lg font-semibold tracking-[-0.03em] text-[#1d140d]">
                   SteadyAI
                 </Link>
               ) : null}
@@ -327,7 +327,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
 
         <main className="flex min-h-screen flex-1 flex-col pb-20 md:pb-0">
           <header className="flex items-center justify-between border-b border-[#ead9ca] bg-[#f7f3ed]/90 px-4 py-3 backdrop-blur md:hidden">
-            <Link href="/agents" className="font-semibold text-[#1d140d]">
+            <Link href="/ai-coach" className="font-semibold text-[#1d140d]">
               SteadyAI
             </Link>
             <button

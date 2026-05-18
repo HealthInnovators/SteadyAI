@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 
 const ALL_NAV_ITEMS = [
-  { href: '/agents', label: 'Coach' },
+  { href: '/ai-coach', label: 'Coach' },
   { href: '/coach', label: 'Coaching', roles: ['COACH', 'ADMIN'] },
   { href: '/reports', label: 'Reports' },
   { href: '/community', label: 'Community' },
@@ -57,7 +57,7 @@ export function PlatformSidebarNav() {
       </aside>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ead9ca] bg-[#fffaf5]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-16px_40px_rgba(80,48,24,0.12)] backdrop-blur md:hidden">
         <div className="grid grid-cols-4 gap-1">
-          {navItems.filter((item) => ['/agents', '/reports', '/community', '/settings'].includes(item.href)).map((item) => {
+          {navItems.filter((item) => ['/ai-coach', '/reports', '/community', '/settings'].includes(item.href)).map((item) => {
             const active = isActive(pathname, item.href);
             return (
               <Link
