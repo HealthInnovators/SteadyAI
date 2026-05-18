@@ -62,6 +62,14 @@ const PRIMARY_NAV_LINKS = [
   { href: '/store', label: 'Store', icon: 'store' }
 ];
 
+const MOBILE_NAV_LINKS = [
+  { href: '/agents', label: 'Coach', icon: 'coach', active: true },
+  { href: '/workouts', label: 'Fitness', icon: 'fitness' },
+  { href: '/nutrition', label: 'Nutrition', icon: 'nutrition' },
+  { href: '/reports', label: 'Reports', icon: 'reports' },
+  { href: '/settings', label: 'Settings', icon: 'settings' }
+];
+
 export function AgentInteractionPanel({ embedded = false, onIntentDetected }: AgentInteractionPanelProps) {
   const { token, userId } = useAuth();
   const [input, setInput] = useState('');
@@ -321,20 +329,26 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
           </aside>
         ) : null}
 
-        <main className="flex min-h-screen flex-1 flex-col">
+        <main className="flex min-h-screen flex-1 flex-col pb-20 md:pb-0">
           <header className="flex items-center justify-between border-b border-[#ead9ca] bg-[#f7f3ed]/90 px-4 py-3 backdrop-blur md:hidden">
             <Link href="/agents" className="font-semibold text-[#1d140d]">
               SteadyAI
             </Link>
-            <Link href="/settings" className="rounded-full border border-[#d8c4b3] px-3 py-1.5 text-sm text-[#4e4035]">
-              Settings
-            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setMessages([welcomeMessage()]);
+              }}
+              className="rounded-full border border-[#d8c4b3] bg-white px-3 py-1.5 text-sm font-semibold text-[#4e4035]"
+            >
+              New chat
+            </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-4 py-6">
+          <div className="flex-1 overflow-y-auto px-3 py-4 pb-28 sm:px-4 md:px-4 md:py-6 md:pb-6">
             <div className={`mx-auto flex min-h-full w-full max-w-4xl flex-col ${conversationMessages.length ? 'justify-start' : 'justify-center'}`}>
               {conversationMessages.length ? (
-                <div className="space-y-5 pb-8">
+                <div className="space-y-5 pb-4 md:pb-8">
                   {conversationMessages.map((message) => (
                     <MessageBubble
                       key={message.id}
@@ -352,7 +366,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
               ) : (
                 <div className="mx-auto mb-8 max-w-2xl text-center">
                   <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8a4b22]">Your health companion</p>
-                  <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#1d140d] sm:text-5xl">
+                  <h1 className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-[#1d140d] sm:text-5xl">
                     What would you like help with today?
                   </h1>
                   <p className="mt-4 text-base leading-7 text-[#5f5145]">
@@ -361,73 +375,94 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="mx-auto w-full max-w-3xl">
-                <div className="rounded-[32px] border-2 border-[#8a4b22] bg-[#fffcf8] p-4 shadow-[0_0_0_6px_rgba(245,201,158,0.28),0_24px_60px_rgba(80,48,24,0.18)]">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Ask SteadyAI here</p>
-                    <p className="rounded-full bg-[#1d140d] px-3 py-1 text-[11px] font-semibold text-white">Type or speak</p>
-                  </div>
-                  <textarea
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-                        void sendPrompt(input);
-                      }
-                    }}
-                    className="min-h-28 w-full resize-none rounded-[22px] border border-[#ead9ca] bg-white p-4 text-lg leading-7 text-[#1d140d] outline-none ring-[#8a4b22]/20 transition placeholder:text-[#9a897a] focus:border-[#8a4b22] focus:ring-4"
-                    placeholder="Example: Create a low-impact workout, log my lunch, summarize my week..."
-                  />
-                  <div className="flex flex-col gap-3 border-t border-[#ead9ca] pt-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-xs leading-5 text-[#7a4b28]">{AGENT_DISCLAIMER}</p>
-                      {voiceMessage ? <p className="mt-1 text-xs font-medium text-[#8a4b22]">{voiceMessage}</p> : null}
+              <div className={`mx-auto w-full max-w-3xl ${embedded ? '' : 'sticky bottom-20 z-20 md:static'}`}>
+                <form onSubmit={handleSubmit} className="w-full">
+                  <div className="rounded-[28px] border-2 border-[#8a4b22] bg-[#fffcf8] p-3 shadow-[0_0_0_5px_rgba(245,201,158,0.26),0_18px_48px_rgba(80,48,24,0.16)] sm:rounded-[32px] sm:p-4">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Ask SteadyAI here</p>
+                      <p className="rounded-full bg-[#1d140d] px-3 py-1 text-[11px] font-semibold text-white">Type or speak</p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {isVoiceSupported ? (
+                    <textarea
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                          event.preventDefault();
+                          void sendPrompt(input);
+                        }
+                      }}
+                      className="min-h-24 w-full resize-none rounded-[22px] border border-[#ead9ca] bg-white p-4 text-base leading-7 text-[#1d140d] outline-none ring-[#8a4b22]/20 transition placeholder:text-[#9a897a] focus:border-[#8a4b22] focus:ring-4 sm:min-h-28 sm:text-lg"
+                      placeholder="Example: Create a low-impact workout, log my lunch, summarize my week..."
+                    />
+                    <div className="flex flex-col gap-3 border-t border-[#ead9ca] pt-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs leading-5 text-[#7a4b28]">{AGENT_DISCLAIMER}</p>
+                        {voiceMessage ? <p className="mt-1 text-xs font-medium text-[#8a4b22]">{voiceMessage}</p> : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isVoiceSupported ? (
+                          <button
+                            type="button"
+                            onClick={toggleVoiceInput}
+                            disabled={isSending}
+                            className={`rounded-full border px-4 py-3 text-sm font-semibold transition ${
+                              isListening
+                                ? 'border-[#b45309] bg-[#fff7ed] text-[#8a4b22]'
+                                : 'border-[#d8c4b3] bg-white text-[#4e4035] hover:bg-[#f3e7da]'
+                            } disabled:opacity-60`}
+                            aria-pressed={isListening}
+                            aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                          >
+                            {isListening ? 'Stop voice' : 'Speak'}
+                          </button>
+                        ) : null}
                         <button
-                          type="button"
-                          onClick={toggleVoiceInput}
-                          disabled={isSending}
-                          className={`rounded-full border px-4 py-3 text-sm font-semibold transition ${
-                            isListening
-                              ? 'border-[#b45309] bg-[#fff7ed] text-[#8a4b22]'
-                              : 'border-[#d8c4b3] bg-white text-[#4e4035] hover:bg-[#f3e7da]'
-                          } disabled:opacity-60`}
-                          aria-pressed={isListening}
-                          aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                          type="submit"
+                          disabled={!input.trim() || isSending}
+                          className="rounded-full bg-[#1d140d] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)] disabled:bg-[#ab9a8c]"
                         >
-                          {isListening ? 'Stop voice' : 'Speak'}
+                          {isSending ? 'Working...' : 'Send'}
                         </button>
-                      ) : null}
-                      <button
-                        type="submit"
-                        disabled={!input.trim() || isSending}
-                        className="rounded-full bg-[#1d140d] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)] disabled:bg-[#ab9a8c]"
-                      >
-                        {isSending ? 'Working...' : 'Send'}
-                      </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </form>
+                </form>
 
-              <div className="mx-auto mt-4 flex w-full max-w-3xl flex-wrap justify-center gap-2">
-                {PRIMARY_NAV_LINKS.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#d8c4b3] bg-white/80 px-4 py-2 text-sm font-semibold text-[#4e4035] shadow-sm hover:bg-[#f3e7da]"
-                  >
-                    <Icon name={link.icon} />
-                    {link.label}
-                  </Link>
-                ))}
+                <div className="mt-3 flex w-full gap-2 overflow-x-auto pb-1 md:flex-wrap md:justify-center md:overflow-visible">
+                  {PRIMARY_NAV_LINKS.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#d8c4b3] bg-white/90 px-4 py-2 text-sm font-semibold text-[#4e4035] shadow-sm hover:bg-[#f3e7da]"
+                    >
+                      <Icon name={link.icon} />
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </main>
+
+        {!embedded ? (
+          <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#e2d6c9] bg-[#fffcf8]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-16px_40px_rgba(80,48,24,0.12)] backdrop-blur md:hidden">
+            <div className="grid grid-cols-5 gap-1">
+              {MOBILE_NAV_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold ${
+                    link.active ? 'bg-[#1d140d] text-white' : 'text-[#5f5145] hover:bg-[#f3e7da]'
+                  }`}
+                >
+                  <Icon name={link.icon} />
+                  <span>{link.label}</span>
+                </Link>
+              ))}
+            </div>
+          </nav>
+        ) : null}
       </div>
     </section>
   );
@@ -532,6 +567,15 @@ function Icon({ name }: { name: string }) {
     return (
       <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'coach') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5 7.5A3.5 3.5 0 0 1 8.5 4h7A3.5 3.5 0 0 1 19 7.5v4A3.5 3.5 0 0 1 15.5 15H11l-4.5 4v-4A3.5 3.5 0 0 1 3 11.5v-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M8 9h8M8 12h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
