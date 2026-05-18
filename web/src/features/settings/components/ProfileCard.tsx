@@ -6,22 +6,30 @@ export function ProfileCard({ context }: { context: PlatformContext }) {
   const { userIdentity } = context;
 
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/50 p-6 shadow-sm">
-      <h3 className="text-xl font-semibold text-[#1d140d]">Account Profile</h3>
-      <div className="mt-4 space-y-3">
-        <div>
-          <p className="text-xs font-medium uppercase text-[#7a4b28]">Display Name</p>
-          <p className="text-base text-[#4e4035]">{userIdentity.displayName || 'Not set'}</p>
+    <section className="rounded-[32px] border border-white/80 bg-[#fffaf5]/82 p-4 shadow-[0_18px_60px_rgba(80,48,24,0.1)] sm:p-6">
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#1d140d] text-base font-bold text-white">
+          {(userIdentity.displayName || userIdentity.email || 'S').slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <p className="text-xs font-medium uppercase text-[#7a4b28]">Email</p>
-          <p className="text-base text-[#4e4035]">{userIdentity.email}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase text-[#7a4b28]">Onboarding</p>
-          <p className="text-base text-[#4e4035]">{userIdentity.onboardingCompleted ? 'Completed' : 'Not Completed'}</p>
+          <h3 className="text-2xl font-bold tracking-[-0.04em] text-[#1d140d]">Account Profile</h3>
+          <p className="text-sm text-[#5f5145]">Your SteadyAI identity</p>
         </div>
       </div>
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ProfileItem label="Display Name" value={userIdentity.displayName || 'Not set'} />
+        <ProfileItem label="Email" value={userIdentity.email || 'Not set'} />
+        <ProfileItem label="Onboarding" value={userIdentity.onboardingCompleted ? 'Completed' : 'Not completed'} />
+      </div>
+    </section>
+  );
+}
+
+function ProfileItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[20px] border border-white/80 bg-white/72 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7a4b28]">{label}</p>
+      <p className="mt-2 break-words text-base font-semibold text-[#4e4035]">{value}</p>
     </div>
   );
 }
