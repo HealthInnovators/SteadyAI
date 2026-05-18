@@ -97,6 +97,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
         routedIntent: nextIntent,
         reasoning: reply.reasoning,
         cards: reply.cards,
+        workoutPlan: reply.workoutPlan,
         createdAt: new Date().toISOString()
       };
       setActiveIntent(nextIntent);
@@ -347,6 +348,7 @@ function MessageBubble({
             Intent: {message.routedIntent}
           </p>
         ) : null}
+        {!isUser && message.workoutPlan ? <WorkoutPlanCard plan={message.workoutPlan} /> : null}
         {message.cards?.length ? (
           <div className="mt-4 space-y-3">
             {message.cards
@@ -381,6 +383,100 @@ function MessageBubble({
                 </div>
               ))}
           </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function WorkoutPlanCard({ plan }: { plan: NonNullable<ChatMessage['workoutPlan']> }) {
+  return (
+    <section className="mt-4 overflow-hidden rounded-[26px] border border-[#d8c4b3] bg-[#fff7ed] shadow-[0_18px_44px_rgba(80,48,24,0.12)]">
+      <div className="bg-[linear-gradient(135deg,_#1d140d,_#70421f)] p-4 text-white">
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#f5c99e]">Workout card</p>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold tracking-[-0.03em]">{plan.title}</h3>
+            <p className="mt-1 text-sm text-[#fff0df]">{plan.focus}</p>
+          </div>
+          <div className="rounded-2xl border border-white/20 bg-white/12 px-4 py-3 text-center">
+            <p className="text-2xl font-semibold leading-none">{plan.estimatedTotalMin}</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#f5c99e]">minutes</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-3 sm:grid-cols-2">
+        {plan.exercises.map((exercise, index) => (
+          <ExerciseCard key={`${plan.planId}-${exercise.name}-${index}`} exercise={exercise} index={index} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ExerciseCard({
+  exercise,
+  index
+}: {
+  exercise: NonNullable<ChatMessage['workoutPlan']>['exercises'][number];
+  index: number;
+}) {
+  const mediaUrl = exercise.gifUrl || exercise.videoUrl || null;
+  const mediaLabel = exercise.thumbnailLabel || exercise.name;
+
+  return (
+    <article className="overflow-hidden rounded-[22px] border border-[#ead9ca] bg-white shadow-[0_10px_24px_rgba(80,48,24,0.08)]">
+      <div className="relative flex h-36 items-center justify-center overflow-hidden bg-[#1d140d]">
+        {mediaUrl ? (
+          exercise.videoUrl && !exercise.gifUrl ? (
+            <video
+              className="h-full w-full object-cover"
+              src={exercise.videoUrl}
+              controls
+              muted
+              playsInline
+              preload="metadata"
+              aria-label={`${exercise.name} video demonstration`}
+            />
+          ) : (
+            <img
+              className="h-full w-full object-cover"
+              src={mediaUrl}
+              alt={`${exercise.name} demonstration`}
+              loading="lazy"
+            />
+          )
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,_#f5c99e,_#70421f_45%,_#1d140d)] px-4 text-center">
+            <p className="text-sm font-semibold text-white">{mediaLabel}</p>
+          </div>
+        )}
+        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-bold text-[#1d140d]">
+          {index + 1}
+        </span>
+      </div>
+
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h4 className="font-semibold leading-5 text-[#1d140d]">{exercise.name}</h4>
+            <p className="mt-1 text-xs text-[#7a6555]">{exercise.reps}</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#f3e7da] px-2.5 py-1 text-xs font-semibold text-[#70421f]">
+            {exercise.durationMin} min
+          </span>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-[#5f5145]">{exercise.note}</p>
+        {exercise.demoUrl || exercise.videoUrl || exercise.gifUrl ? (
+          <a
+            href={exercise.demoUrl || exercise.videoUrl || exercise.gifUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex rounded-full border border-[#dccbbb] px-3 py-1.5 text-xs font-semibold text-[#4e4035] hover:bg-[#f3e7da]"
+          >
+            Open demo
+          </a>
         ) : null}
       </div>
     </article>

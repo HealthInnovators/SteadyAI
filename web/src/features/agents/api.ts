@@ -1,5 +1,5 @@
 import { createApiClient } from '@/lib/api';
-import type { AssistantCard, AssistantIntent, ReasoningStep } from './types';
+import type { AssistantCard, AssistantIntent, ReasoningStep, WorkoutPlan } from './types';
 
 interface AgentReplyResponse {
   reply: string;
@@ -8,6 +8,7 @@ interface AgentReplyResponse {
   toolInvocations: string[];
   disclaimer?: string;
   cards?: AssistantCard[];
+  workoutPlan?: WorkoutPlan;
 }
 
 const AGENT_REQUEST_TIMEOUT_MS = 30000;
@@ -15,7 +16,13 @@ const AGENT_REQUEST_TIMEOUT_MS = 30000;
 export async function requestAgentReply(
   prompt: string,
   token?: string | null
-): Promise<{ text: string; intent?: AssistantIntent; reasoning?: ReasoningStep[]; cards?: AssistantCard[] }> {
+): Promise<{
+  text: string;
+  intent?: AssistantIntent;
+  reasoning?: ReasoningStep[];
+  cards?: AssistantCard[];
+  workoutPlan?: WorkoutPlan;
+}> {
   const api = createApiClient(token ?? undefined);
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), AGENT_REQUEST_TIMEOUT_MS);
@@ -41,7 +48,8 @@ export async function requestAgentReply(
       text: response.reply,
       intent: response.intent,
       reasoning,
-      cards: response.cards
+      cards: response.cards,
+      workoutPlan: response.workoutPlan
     };
   } finally {
     window.clearTimeout(timeout);

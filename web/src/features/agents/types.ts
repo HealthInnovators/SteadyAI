@@ -23,6 +23,25 @@ export interface AssistantCard {
   actions?: Array<{ label: string; prompt: string }>;
 }
 
+export interface WorkoutExercise {
+  name: string;
+  durationMin: number;
+  reps: string;
+  thumbnailLabel?: string;
+  gifUrl?: string;
+  videoUrl?: string;
+  demoUrl?: string;
+  note: string;
+}
+
+export interface WorkoutPlan {
+  planId: string;
+  title: string;
+  focus: string;
+  estimatedTotalMin: number;
+  exercises: WorkoutExercise[];
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'agent' | 'system';
@@ -30,5 +49,6 @@ export interface ChatMessage {
   routedIntent?: AssistantIntent;
   reasoning?: ReasoningStep[];
   cards?: AssistantCard[];
+  workoutPlan?: WorkoutPlan;
   createdAt: string;
 }
