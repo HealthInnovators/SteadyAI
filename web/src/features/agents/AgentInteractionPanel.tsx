@@ -55,6 +55,8 @@ type SpeechRecognitionWindow = Window &
   };
 
 const PRIMARY_NAV_LINKS = [
+  { href: '/workouts', label: 'Fitness Expert', icon: 'fitness' },
+  { href: '/nutrition', label: 'Nutrition Expert', icon: 'nutrition' },
   { href: '/reports', label: 'Reports', icon: 'reports' },
   { href: '/community', label: 'Community', icon: 'community' },
   { href: '/store', label: 'Store', icon: 'store' }
@@ -548,6 +550,23 @@ function Icon({ name }: { name: string }) {
       <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="currentColor" strokeWidth="2" />
         <path d="M3.5 19c.8-3.2 2.4-5 4.5-5s3.7 1.8 4.5 5M12.5 18c.7-2.4 1.9-3.7 3.5-3.7 1.7 0 3 1.3 3.7 3.7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'fitness') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 10v4M20 10v4M7 8v8M17 8v8M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'nutrition') {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 21c4.5-4.2 7-7.7 7-11.1A5.8 5.8 0 0 0 13.2 4c-1.6 0-2.8.7-3.6 1.7A4.4 4.4 0 0 0 6 4C3.8 4 2 5.8 2 8c0 3.8 3.7 6.8 10 13Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M14 7.5c1.2 0 2.2.8 2.6 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
