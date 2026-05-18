@@ -2,10 +2,9 @@
 
 import { useAuth } from '@/auth';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { FormEvent, startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { logWorkoutPlanSession, requestAgentReply, type WorkoutFeedback } from './api';
-import { AGENT_DISCLAIMER, STARTER_PROMPT_GROUPS, STARTER_PROMPTS } from './data';
+import { AGENT_DISCLAIMER } from './data';
 import type { AssistantIntent, ChatMessage, WorkoutPlan } from './types';
 
 interface AgentInteractionPanelProps {
@@ -55,52 +54,13 @@ type SpeechRecognitionWindow = Window &
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   };
 
-const INTENT_ROUTES: Partial<Record<AssistantIntent, string>> = {
-  FITNESS: '/workouts',
-  NUTRITION: '/nutrition',
-  COMMUNITY: '/community',
-  REPORTS: '/reports',
-  STORE: '/store',
-  TRACKING: '/reports',
-  CHECK_IN: '/check-in',
-  EDUCATION: '/agents'
-};
-
-const WORKSPACE_LINKS = [
-  { href: '/workouts', label: 'Workouts' },
-  { href: '/nutrition', label: 'Nutrition' },
+const PRIMARY_NAV_LINKS = [
   { href: '/reports', label: 'Reports' },
   { href: '/community', label: 'Community' },
-  { href: '/store', label: 'Store' },
-  { href: '/settings', label: 'Settings' }
+  { href: '/store', label: 'Store' }
 ];
 
-const INTENT_LABELS: Record<AssistantIntent, string> = {
-  FITNESS: 'workout planning',
-  NUTRITION: 'nutrition support',
-  TRACKING: 'progress tracking',
-  CHECK_IN: 'daily check-ins',
-  COMMUNITY: 'community support',
-  REPORTS: 'weekly progress',
-  STORE: 'coach feedback',
-  EDUCATION: 'health education',
-  GENERAL: 'your health routine'
-};
-
-const INTENT_ACTION_LABELS: Record<AssistantIntent, string> = {
-  FITNESS: 'View workout tools',
-  NUTRITION: 'Open nutrition tools',
-  TRACKING: 'Review progress',
-  CHECK_IN: 'Open check-in',
-  COMMUNITY: 'Open community',
-  REPORTS: 'View reports',
-  STORE: 'Explore coach feedback',
-  EDUCATION: 'Keep asking here',
-  GENERAL: 'Continue here'
-};
-
 export function AgentInteractionPanel({ embedded = false, onIntentDetected }: AgentInteractionPanelProps) {
-  const router = useRouter();
   const { token, userId } = useAuth();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -108,20 +68,15 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
   const [isListening, setIsListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [workoutLogState, setWorkoutLogState] = useState<Record<string, { status: 'saving' | 'saved' | 'error'; message: string }>>({});
-  const [activePromptGroup, setActivePromptGroup] = useState<(typeof STARTER_PROMPT_GROUPS)[number]['id']>(
-    STARTER_PROMPT_GROUPS[0].id
-  );
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage()]);
-  const [activeIntent, setActiveIntent] = useState<AssistantIntent>('GENERAL');
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const voiceBaseInputRef = useRef('');
   const finalTranscriptRef = useRef('');
 
-  const visibleGroup = STARTER_PROMPT_GROUPS.find((group) => group.id === activePromptGroup) || STARTER_PROMPT_GROUPS[0];
-  const suggestedRoute = activeIntent === 'GENERAL' ? null : INTENT_ROUTES[activeIntent] || null;
+  const conversationMessages = messages.filter((message) => message.id !== 'system-assistant-hub');
   const shellClass = embedded
     ? 'w-full'
-    : 'min-h-screen w-full bg-[radial-gradient(circle_at_top_left,_rgba(255,237,213,0.9),_rgba(246,236,226,0.94)_35%,_#f4efe8_82%)] p-4 sm:p-6 lg:p-8';
+    : 'min-h-screen w-full bg-[#f7f3ed] text-[#1d140d]';
 
   useEffect(() => {
     const speechWindow = window as SpeechRecognitionWindow;
@@ -215,7 +170,6 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
         nutritionLog: reply.nutritionLog,
         createdAt: new Date().toISOString()
       };
-      setActiveIntent(nextIntent);
       setMessages((prev) => prev.filter((message) => message.id !== pendingId).concat(agentMessage));
       if (nextIntent !== 'GENERAL') {
         onIntentDetected?.(nextIntent);
@@ -296,226 +250,151 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
     }
   }
 
-  function openSuggestedWorkspace() {
-    if (!suggestedRoute) {
-      return;
-    }
-
-    startTransition(() => {
-      router.push(suggestedRoute);
-    });
-  }
-
-  const lastAgentMessage = useMemo(
-    () => [...messages].reverse().find((message) => message.role === 'agent'),
-    [messages]
-  );
-
   return (
     <section className={shellClass}>
-      <div className={`mx-auto grid w-full gap-4 ${embedded ? '' : 'max-w-7xl lg:grid-cols-[1fr_340px]'}`}>
-        <div className="flex min-h-[72vh] flex-col overflow-hidden rounded-[34px] border border-white/70 bg-[#fffaf5]/88 shadow-[0_28px_100px_rgba(80,48,24,0.12)] backdrop-blur">
-          <header className="border-b border-[#ead9ca] px-5 py-4 sm:px-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8a4b22]">Your health companion</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#1d140d] sm:text-4xl">
-                  What would you like help with today?
-                </h1>
-                <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5f5145]">
-                  Ask for a workout, meal idea, progress summary, check-in, or a simple next step. SteadyAI turns your request
-                  into a practical plan you can use right away.
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="rounded-2xl border border-[#ead9ca] bg-white/75 px-4 py-3 text-sm">
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#8a4b22]">Currently helping with</p>
-                  <p className="mt-1 font-semibold text-[#1d140d]">{INTENT_LABELS[activeIntent]}</p>
-                </div>
+      <div className={embedded ? 'mx-auto flex min-h-[72vh] w-full max-w-5xl flex-col' : 'flex min-h-screen w-full'}>
+        {!embedded ? (
+          <aside className="hidden w-72 shrink-0 flex-col border-r border-[#e2d6c9] bg-[#fbf7f1] px-4 py-5 md:flex">
+            <Link href="/agents" className="rounded-2xl px-3 py-2 text-lg font-semibold tracking-[-0.03em] text-[#1d140d]">
+              SteadyAI
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setMessages([welcomeMessage()]);
+              }}
+              className="mt-5 rounded-2xl border border-[#d8c4b3] bg-white px-4 py-3 text-left text-sm font-semibold text-[#4e4035] hover:bg-[#f3e7da]"
+            >
+              New chat
+            </button>
+            <nav className="mt-6 space-y-1">
+              {PRIMARY_NAV_LINKS.map((link) => (
                 <Link
-                  href="/"
-                  className="rounded-full border border-[#d8c4b3] bg-white/70 px-4 py-2 text-center text-xs font-semibold text-[#4e4035] hover:bg-white"
+                  key={link.href}
+                  href={link.href}
+                  className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#4e4035] hover:bg-[#f3e7da]"
                 >
-                  Public site
+                  {link.label}
                 </Link>
-              </div>
+              ))}
+            </nav>
+            <div className="mt-auto space-y-1 border-t border-[#ead9ca] pt-4">
+              <Link href="/settings" className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#4e4035] hover:bg-[#f3e7da]">
+                Settings
+              </Link>
+              <Link href="/" className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#7a6555] hover:bg-[#f3e7da]">
+                Public site
+              </Link>
             </div>
+          </aside>
+        ) : null}
+
+        <main className="flex min-h-screen flex-1 flex-col">
+          <header className="flex items-center justify-between border-b border-[#ead9ca] bg-[#f7f3ed]/90 px-4 py-3 backdrop-blur md:hidden">
+            <Link href="/agents" className="font-semibold text-[#1d140d]">
+              SteadyAI
+            </Link>
+            <Link href="/settings" className="rounded-full border border-[#d8c4b3] px-3 py-1.5 text-sm text-[#4e4035]">
+              Settings
+            </Link>
           </header>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
-            {messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                workoutLogState={message.workoutPlan ? workoutLogState[message.workoutPlan.planId] : undefined}
-                onLogWorkout={(plan, feedback) => {
-                  void logWorkout(plan, feedback);
-                }}
-                onAction={(prompt) => {
-                  void sendPrompt(prompt);
-                }}
-              />
-            ))}
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="border-t border-[#ead9ca] bg-[linear-gradient(180deg,_rgba(255,250,245,0.72),_rgba(255,237,213,0.92))] p-4 sm:p-5"
-          >
-            <div className="relative rounded-[32px] border-2 border-[#8a4b22] bg-[#fffcf8] p-4 shadow-[0_0_0_6px_rgba(245,201,158,0.28),0_24px_60px_rgba(80,48,24,0.18)]">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Ask SteadyAI here</p>
-                <p className="rounded-full bg-[#1d140d] px-3 py-1 text-[11px] font-semibold text-white">
-                  Type or speak
-                </p>
-              </div>
-              <textarea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    void sendPrompt(input);
-                  }
-                }}
-                className="min-h-28 w-full resize-none rounded-[22px] border border-[#ead9ca] bg-white p-4 text-lg leading-7 text-[#1d140d] outline-none ring-[#8a4b22]/20 transition placeholder:text-[#9a897a] focus:border-[#8a4b22] focus:ring-4"
-                placeholder="Example: Create a low-impact workout, log my lunch, summarize my week, or draft a community check-in..."
-              />
-              <div className="flex flex-col gap-3 border-t border-[#ead9ca] pt-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs leading-5 text-[#7a4b28]">{AGENT_DISCLAIMER}</p>
-                  {voiceMessage ? <p className="mt-1 text-xs font-medium text-[#8a4b22]">{voiceMessage}</p> : null}
+          <div className="flex-1 overflow-y-auto px-4 py-6">
+            <div className={`mx-auto flex min-h-full w-full max-w-4xl flex-col ${conversationMessages.length ? 'justify-start' : 'justify-center'}`}>
+              {conversationMessages.length ? (
+                <div className="space-y-5 pb-8">
+                  {conversationMessages.map((message) => (
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      workoutLogState={message.workoutPlan ? workoutLogState[message.workoutPlan.planId] : undefined}
+                      onLogWorkout={(plan, feedback) => {
+                        void logWorkout(plan, feedback);
+                      }}
+                      onAction={(prompt) => {
+                        void sendPrompt(prompt);
+                      }}
+                    />
+                  ))}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {isVoiceSupported ? (
-                    <button
-                      type="button"
-                      onClick={toggleVoiceInput}
-                      disabled={isSending}
-                      className={`rounded-full border px-4 py-3 text-sm font-semibold transition ${
-                        isListening
-                          ? 'border-[#b45309] bg-[#fff7ed] text-[#8a4b22]'
-                          : 'border-[#d8c4b3] bg-white text-[#4e4035] hover:bg-[#f3e7da]'
-                      } disabled:opacity-60`}
-                      aria-pressed={isListening}
-                      aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
-                    >
-                      {isListening ? 'Stop voice' : 'Speak'}
-                    </button>
-                  ) : null}
-                  <button
-                    type="submit"
-                    disabled={!input.trim() || isSending}
-                    className="rounded-full bg-[#1d140d] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)] disabled:bg-[#ab9a8c]"
-                  >
-                    {isSending ? 'Working...' : 'Send'}
-                  </button>
+              ) : (
+                <div className="mx-auto mb-8 max-w-2xl text-center">
+                  <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8a4b22]">Your health companion</p>
+                  <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-[#1d140d] sm:text-5xl">
+                    What would you like help with today?
+                  </h1>
+                  <p className="mt-4 text-base leading-7 text-[#5f5145]">
+                    Ask for a workout, meal idea, progress summary, check-in, or a simple next step.
+                  </p>
                 </div>
-              </div>
-            </div>
-          </form>
-        </div>
+              )}
 
-        {!embedded ? (
-          <aside className="space-y-4">
-            <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Your tools</p>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {WORKSPACE_LINKS.map((link) => (
+              <form onSubmit={handleSubmit} className="mx-auto w-full max-w-3xl">
+                <div className="rounded-[32px] border-2 border-[#8a4b22] bg-[#fffcf8] p-4 shadow-[0_0_0_6px_rgba(245,201,158,0.28),0_24px_60px_rgba(80,48,24,0.18)]">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Ask SteadyAI here</p>
+                    <p className="rounded-full bg-[#1d140d] px-3 py-1 text-[11px] font-semibold text-white">Type or speak</p>
+                  </div>
+                  <textarea
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        void sendPrompt(input);
+                      }
+                    }}
+                    className="min-h-28 w-full resize-none rounded-[22px] border border-[#ead9ca] bg-white p-4 text-lg leading-7 text-[#1d140d] outline-none ring-[#8a4b22]/20 transition placeholder:text-[#9a897a] focus:border-[#8a4b22] focus:ring-4"
+                    placeholder="Example: Create a low-impact workout, log my lunch, summarize my week..."
+                  />
+                  <div className="flex flex-col gap-3 border-t border-[#ead9ca] pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs leading-5 text-[#7a4b28]">{AGENT_DISCLAIMER}</p>
+                      {voiceMessage ? <p className="mt-1 text-xs font-medium text-[#8a4b22]">{voiceMessage}</p> : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isVoiceSupported ? (
+                        <button
+                          type="button"
+                          onClick={toggleVoiceInput}
+                          disabled={isSending}
+                          className={`rounded-full border px-4 py-3 text-sm font-semibold transition ${
+                            isListening
+                              ? 'border-[#b45309] bg-[#fff7ed] text-[#8a4b22]'
+                              : 'border-[#d8c4b3] bg-white text-[#4e4035] hover:bg-[#f3e7da]'
+                          } disabled:opacity-60`}
+                          aria-pressed={isListening}
+                          aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                        >
+                          {isListening ? 'Stop voice' : 'Speak'}
+                        </button>
+                      ) : null}
+                      <button
+                        type="submit"
+                        disabled={!input.trim() || isSending}
+                        className="rounded-full bg-[#1d140d] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)] disabled:bg-[#ab9a8c]"
+                      >
+                        {isSending ? 'Working...' : 'Send'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+              <div className="mx-auto mt-4 flex w-full max-w-3xl flex-wrap justify-center gap-2">
+                {PRIMARY_NAV_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="rounded-2xl border border-[#ead9ca] bg-[#fffaf5] px-3 py-3 text-center text-xs font-semibold text-[#4e4035] hover:bg-[#f3e7da]"
+                    className="rounded-full border border-[#d8c4b3] bg-white/80 px-4 py-2 text-sm font-semibold text-[#4e4035] shadow-sm hover:bg-[#f3e7da]"
                   >
                     {link.label}
                   </Link>
                 ))}
               </div>
-            </section>
-
-            <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Helpful next step</p>
-              <p className="mt-2 text-sm leading-6 text-[#5f5145]">
-                Based on your last message, SteadyAI is focused on{' '}
-                <span className="font-semibold text-[#1d140d]">{INTENT_LABELS[activeIntent]}</span>.
-              </p>
-              {suggestedRoute ? (
-                <button
-                  type="button"
-                  onClick={openSuggestedWorkspace}
-                  className="mt-4 w-full rounded-full bg-[#1d140d] px-4 py-3 text-sm font-semibold text-white"
-                >
-                  {INTENT_ACTION_LABELS[activeIntent]}
-                </button>
-              ) : (
-                <p className="mt-4 rounded-2xl bg-[#f7efe6] p-3 text-sm leading-6 text-[#5f5145]">
-                  Ask what you want to do next, and SteadyAI will suggest the most useful place to continue.
-                </p>
-              )}
-            </section>
-
-            <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Try asking</p>
-                <button
-                  type="button"
-                  className="rounded-full border border-[#d8c4b3] px-3 py-1 text-xs text-[#5f5145]"
-                  onClick={() => {
-                    const randomPrompt = STARTER_PROMPTS[Math.floor(Math.random() * STARTER_PROMPTS.length)];
-                    if (randomPrompt) {
-                      void sendPrompt(randomPrompt);
-                    }
-                  }}
-                >
-                  Random
-                </button>
-              </div>
-              <div className="mt-4 grid gap-2">
-                {STARTER_PROMPT_GROUPS.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    onClick={() => setActivePromptGroup(group.id)}
-                    className={`rounded-2xl border p-3 text-left transition ${
-                      activePromptGroup === group.id
-                        ? 'border-[#1d140d] bg-[#1d140d] text-white'
-                        : 'border-[#e6d9cc] bg-[#fffaf5] text-[#1d140d] hover:border-[#c4ad98]'
-                    }`}
-                  >
-                    <span className="text-sm font-semibold">{group.label}</span>
-                    <span className={`mt-1 block text-xs ${activePromptGroup === group.id ? 'text-[#f2e8dd]' : 'text-[#77685d]'}`}>
-                      {group.description}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 space-y-2">
-                {visibleGroup.prompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => {
-                      void sendPrompt(prompt);
-                    }}
-                    className="w-full rounded-2xl border border-[#ead9ca] bg-[#fffaf5] p-3 text-left text-sm leading-5 text-[#4e4035] hover:bg-[#f3e7da]"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {lastAgentMessage?.cards?.length ? (
-              <section className="rounded-[30px] border border-white/70 bg-[#1d140d] p-5 text-white shadow-[0_18px_70px_rgba(29,20,13,0.14)]">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f3c99f]">Agent output</p>
-                <p className="mt-2 text-sm leading-6 text-[#fff6ee]">
-                  The latest response includes {lastAgentMessage.cards.length} structured card
-                  {lastAgentMessage.cards.length === 1 ? '' : 's'} for summary, reasoning, and next actions.
-                </p>
-              </section>
-            ) : null}
-          </aside>
-        ) : null}
+            </div>
+          </div>
+        </main>
       </div>
     </section>
   );
