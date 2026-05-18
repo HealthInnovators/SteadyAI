@@ -8,11 +8,8 @@ import { useMemo } from 'react';
 const ALL_NAV_ITEMS = [
   { href: '/agents', label: 'Coach' },
   { href: '/coach', label: 'Coaching', roles: ['COACH', 'ADMIN'] },
-  { href: '/workouts', label: 'Workouts' },
-  { href: '/nutrition', label: 'Nutrition' },
   { href: '/reports', label: 'Reports' },
   { href: '/community', label: 'Community' },
-  { href: '/store', label: 'Store' },
   { href: '/settings', label: 'Settings' },
 ];
 
@@ -59,8 +56,8 @@ export function PlatformSidebarNav() {
         </nav>
       </aside>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ead9ca] bg-[#fffaf5]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-16px_40px_rgba(80,48,24,0.12)] backdrop-blur md:hidden">
-        <div className="grid grid-cols-5 gap-1">
-          {navItems.filter((item) => ['/agents', '/workouts', '/nutrition', '/reports', '/settings'].includes(item.href)).map((item) => {
+        <div className="grid grid-cols-4 gap-1">
+          {navItems.filter((item) => ['/agents', '/reports', '/community', '/settings'].includes(item.href)).map((item) => {
             const active = isActive(pathname, item.href);
             return (
               <Link

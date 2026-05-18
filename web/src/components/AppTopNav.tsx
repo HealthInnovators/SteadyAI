@@ -8,17 +8,13 @@ import { useState } from 'react';
 const CORE_NAV_ITEMS: Array<{ href: string; label: string }> = [
   { href: '/', label: 'Coach OS' },
   { href: '/community', label: 'Community' },
-  { href: '/reports', label: 'Reports' },
-  { href: '/store', label: 'Store' }
+  { href: '/reports', label: 'Reports' }
 ];
 
 const AUTH_NAV_ITEMS: Array<{ href: string; label: string }> = [
   { href: '/agents', label: 'AI Coach' },
-  { href: '/workouts', label: 'Workouts' },
-  { href: '/nutrition', label: 'Nutrition' },
   { href: '/community', label: 'Community' },
-  { href: '/reports', label: 'Reports' },
-  { href: '/store', label: 'Store' }
+  { href: '/reports', label: 'Reports' }
 ];
 
 const DEFAULT_POST_AUTH_PATH = '/onboarding';

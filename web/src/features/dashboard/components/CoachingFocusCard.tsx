@@ -9,15 +9,14 @@ import { startTransition } from 'react';
 function mapIntentToFocus(intent: AssistantIntent): string {
     switch (intent) {
       case 'FITNESS':
-        return '/workouts';
       case 'NUTRITION':
-        return '/nutrition';
+        return '/agents';
       case 'COMMUNITY':
         return '/community';
       case 'REPORTS':
         return '/reports';
       case 'STORE':
-        return '/store';
+        return '/agents';
       default:
         return '/agents';
     }

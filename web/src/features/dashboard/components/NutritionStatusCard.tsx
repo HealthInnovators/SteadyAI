@@ -86,8 +86,8 @@ export function NutritionStatusCard() {
     <div className="rounded-2xl border border-white/70 bg-white/50 p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Nutrition</h3>
-        <Link href="/nutrition" className="text-sm font-medium text-[#7a4b28] hover:underline">
-          See Log &rarr;
+        <Link href="/agents" className="text-sm font-medium text-[#7a4b28] hover:underline">
+          Ask coach &rarr;
         </Link>
       </div>
       <div className="mt-4">

@@ -39,20 +39,6 @@ export default function manifest(): MetadataRoute.Manifest {
         description: 'Ask SteadyAI for your next workout, meal, or progress step.',
         url: '/agents',
         icons: [{ src: '/favicon.svg', sizes: '64x64', type: 'image/svg+xml' }]
-      },
-      {
-        name: 'Workout Expert',
-        short_name: 'Fitness',
-        description: 'Open the fitness expert workspace.',
-        url: '/workouts',
-        icons: [{ src: '/favicon.svg', sizes: '64x64', type: 'image/svg+xml' }]
-      },
-      {
-        name: 'Nutrition Expert',
-        short_name: 'Nutrition',
-        description: 'Open the nutrition expert workspace.',
-        url: '/nutrition',
-        icons: [{ src: '/favicon.svg', sizes: '64x64', type: 'image/svg+xml' }]
       }
     ]
   };

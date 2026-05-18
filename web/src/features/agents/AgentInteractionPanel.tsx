@@ -55,18 +55,14 @@ type SpeechRecognitionWindow = Window &
   };
 
 const PRIMARY_NAV_LINKS = [
-  { href: '/workouts', label: 'Fitness Expert', icon: 'fitness' },
-  { href: '/nutrition', label: 'Nutrition Expert', icon: 'nutrition' },
   { href: '/reports', label: 'Reports', icon: 'reports' },
-  { href: '/community', label: 'Community', icon: 'community' },
-  { href: '/store', label: 'Store', icon: 'store' }
+  { href: '/community', label: 'Community', icon: 'community' }
 ];
 
 const MOBILE_NAV_LINKS = [
   { href: '/agents', label: 'Coach', icon: 'coach', active: true },
-  { href: '/workouts', label: 'Fitness', icon: 'fitness' },
-  { href: '/nutrition', label: 'Nutrition', icon: 'nutrition' },
   { href: '/reports', label: 'Reports', icon: 'reports' },
+  { href: '/community', label: 'Community', icon: 'community' },
   { href: '/settings', label: 'Settings', icon: 'settings' }
 ];
 
@@ -447,7 +443,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
 
         {!embedded ? (
           <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-[#e2d6c9] bg-[#fffcf8]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 shadow-[0_-16px_40px_rgba(80,48,24,0.12)] backdrop-blur md:hidden">
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-4 gap-1">
               {MOBILE_NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
