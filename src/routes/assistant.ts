@@ -7,6 +7,12 @@ import { optionalAuthenticateRequest } from '../middleware/auth';
 import type { AgentChatType } from '../services/agent-chat.service';
 import { generateAgentChatReply } from '../services/agent-chat.service';
 import { generateEducatorLesson } from '../services/educator.service';
+import { attachExerciseMedia } from '../services/exercise-media.service';
+import {
+  getLatestWorkoutSessionInsight,
+  getWorkoutHistorySummary,
+  getWorkoutPreferences
+} from '../services/workout-session.service';
 
 interface AssistantMessageBody {
   message: string;
@@ -14,6 +20,7 @@ interface AssistantMessageBody {
 
 type AssistantRoute =
   | { type: 'AGENT'; agentType: AgentChatType; toolName: 'steadyai.ask_agent' }
+  | { type: 'WORKOUT'; toolName: 'steadyai.workout_coach' }
   | { type: 'EDUCATOR'; toolName: 'steadyai.educator_help' };
 
 type AssistantIntent =
@@ -36,11 +43,34 @@ interface AssistantCard {
   actions?: Array<{ label: string; prompt: string }>;
 }
 
+interface AssistantWorkoutExercise {
+  name: string;
+  durationMin: number;
+  reps: string;
+  thumbnailLabel?: string;
+  gifUrl?: string;
+  videoUrl?: string;
+  demoUrl?: string;
+  note: string;
+}
+
+interface AssistantWorkoutPlan {
+  planId: string;
+  title: string;
+  focus: string;
+  estimatedTotalMin: number;
+  exercises: AssistantWorkoutExercise[];
+}
+
 function pickAssistantRoute(message: string): AssistantRoute {
   const normalized = message.toLowerCase();
 
   if (/\b(myth|misinformation|evidence|study|citation|true or false)\b/.test(normalized)) {
     return { type: 'EDUCATOR', toolName: 'steadyai.educator_help' };
+  }
+
+  if (/\b(workout|fitness|exercise|training|strength|cardio)\b/.test(normalized)) {
+    return { type: 'WORKOUT', toolName: 'steadyai.workout_coach' };
   }
 
   if (/\b(meal|nutrition|grocery|protein|calorie|diet)\b/.test(normalized)) {
@@ -112,6 +142,8 @@ function buildCards(input: {
   const nextSteps =
     input.intent === 'TRACKING'
       ? ['Review data permissions.', 'Sync today\'s steps and activity.', 'Use reports to spot patterns before changing the plan.']
+      : input.route.type === 'WORKOUT'
+      ? ['Try the workout today.', 'Ask for an easier version if needed.', 'Log how it felt when finished.']
       : input.route.type === 'EDUCATOR'
       ? ['Ask for one practical example.', 'Ask for one citation-backed clarification.', 'Ask for a myth-safe rephrase.']
       : input.route.agentType === 'MEAL_PLANNER'
@@ -131,6 +163,12 @@ function buildCards(input: {
             { label: 'Review Permissions', prompt: 'Show me which phone and health data permissions I should enable first.' },
             { label: 'Sync Activity', prompt: 'Help me sync today’s phone activity data into Steady AI.' },
             { label: 'Explain Reports', prompt: 'Explain how to use synced phone data in my weekly report.' }
+          ]
+        : input.route.type === 'WORKOUT'
+        ? [
+            { label: 'Make It Easier', prompt: 'Make this workout easier and more joint-friendly.' },
+            { label: 'No Equipment Version', prompt: 'Modify this workout so it uses no equipment.' },
+            { label: 'Log After Workout', prompt: 'Help me log this workout after I finish.' }
           ]
         : input.route.type === 'EDUCATOR'
         ? [
@@ -160,6 +198,117 @@ function buildCards(input: {
   return cards;
 }
 
+function randomPlanId(): string {
+  return `plan-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function parseRequestedDuration(prompt: string): number | null {
+  const match = prompt.match(/\b(\d{1,3})\s*(?:min|mins|minute|minutes)\b/i);
+  if (!match) {
+    return null;
+  }
+
+  const value = Number(match[1]);
+  if (!Number.isFinite(value) || value < 5 || value > 120) {
+    return null;
+  }
+
+  return Math.round(value);
+}
+
+function scaleWorkoutDuration(plan: AssistantWorkoutPlan, targetMinutes: number | null): AssistantWorkoutPlan {
+  if (!targetMinutes || plan.estimatedTotalMin <= 0) {
+    return plan;
+  }
+
+  const ratio = Math.max(0.6, Math.min(1.8, targetMinutes / plan.estimatedTotalMin));
+  const exercises = plan.exercises.map((exercise) => ({
+    ...exercise,
+    durationMin: Math.max(2, Math.round(exercise.durationMin * ratio))
+  }));
+
+  return {
+    ...plan,
+    estimatedTotalMin: exercises.reduce((sum, exercise) => sum + exercise.durationMin, 0),
+    exercises
+  };
+}
+
+function buildWorkoutPlan(prompt: string): AssistantWorkoutPlan {
+  const normalized = prompt.toLowerCase();
+  const lowImpact = /\b(low[-\s]?impact|no[-\s]?impact|joint[-\s]?friendly|knee)\b/.test(normalized);
+  const noEquipment = /\b(no equipment|bodyweight|without equipment)\b/.test(normalized);
+  const harder = /\b(harder|advanced|intense|challenge)\b/.test(normalized);
+  const easier = /\b(easy|easier|beginner|recover|gentle)\b/.test(normalized) || lowImpact;
+
+  const base: AssistantWorkoutExercise[] = [
+    {
+      name: lowImpact ? 'March in Place' : 'Jumping Jacks',
+      durationMin: easier ? 3 : 4,
+      reps: easier ? 'steady pace' : '60 reps',
+      note: 'Warm up at a controlled pace and keep breathing steady.'
+    },
+    {
+      name: lowImpact ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
+      durationMin: 4,
+      reps: harder ? '4 x 15' : easier ? '3 x 10' : '3 x 12',
+      note: 'Keep chest upright and push through the heels.'
+    },
+    {
+      name: harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
+      durationMin: 4,
+      reps: harder ? '4 x 10' : easier ? '3 x 6' : '3 x 8',
+      note: 'Use wall or incline push-ups if floor push-ups are too much.'
+    },
+    {
+      name: lowImpact ? 'Glute Bridge' : 'Reverse Lunge',
+      durationMin: 4,
+      reps: harder ? '3 x 14/side' : easier ? '3 x 8/side' : '3 x 10/side',
+      note: lowImpact ? 'Drive through heels and squeeze glutes at the top.' : 'Keep the front knee stable over mid-foot.'
+    },
+    {
+      name: 'Forearm Plank',
+      durationMin: easier ? 3 : 4,
+      reps: harder ? '4 x 45 sec' : easier ? '3 x 20 sec' : '3 x 30 sec',
+      note: 'Brace the core and keep hips level.'
+    }
+  ];
+
+  if (harder && !lowImpact) {
+    base.push({
+      name: 'Mountain Climbers',
+      durationMin: 3,
+      reps: '3 rounds x 30 sec',
+      note: 'Optional finisher for extra conditioning.'
+    });
+  }
+
+  const exercises = noEquipment
+    ? base.map((exercise) => ({
+        ...exercise,
+        note: `${exercise.note} No equipment required.`
+      }))
+    : base;
+
+  const plan: AssistantWorkoutPlan = {
+    planId: randomPlanId(),
+    title: "Today's Workout Plan",
+    focus: lowImpact ? 'Low-impact full-body consistency' : harder ? 'Strength and conditioning' : 'Full-body consistency',
+    estimatedTotalMin: exercises.reduce((sum, exercise) => sum + exercise.durationMin, 0),
+    exercises
+  };
+
+  return scaleWorkoutDuration(plan, parseRequestedDuration(prompt));
+}
+
+function formatWorkoutReply(plan: AssistantWorkoutPlan): string {
+  const exercises = plan.exercises
+    .map((exercise, index) => `${index + 1}. ${exercise.name} - ${exercise.durationMin} min, ${exercise.reps}. ${exercise.note}`)
+    .join('\n');
+
+  return `${plan.title}: ${plan.focus}. Estimated time: ${plan.estimatedTotalMin} minutes.\n\n${exercises}\n\nMove at a conversational pace, stop if pain appears, and choose the easier variation when form breaks.`;
+}
+
 export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: AssistantMessageBody }>(
     '/assistant/message',
@@ -173,6 +322,72 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
     try {
       const route = pickAssistantRoute(message);
       const intent = detectAssistantIntent(message);
+
+      if (route.type === 'WORKOUT') {
+        const run = await steadyAiInternalRuntime.runAgent<
+          { message: string; intent: AssistantIntent },
+          AssistantWorkoutPlan
+        >({
+          agentId: route.toolName as AgentCapabilityId,
+          userId: request.userId,
+          input: { message, intent },
+          execute: async (context) => {
+            await context.logEvent(AgentEventType.INFO, {
+              message: 'Assistant routed request to workout coach',
+              intent
+            });
+
+            const plan = buildWorkoutPlan(message);
+            const [preferences, history7d, latestSession] = request.userId
+              ? await Promise.all([
+                  getWorkoutPreferences(request.userId).catch(() => null),
+                  getWorkoutHistorySummary(request.userId, 7).catch(() => null),
+                  getLatestWorkoutSessionInsight(request.userId).catch(() => null)
+                ])
+              : [null, null, null];
+
+            await context.logEvent(AgentEventType.INFO, {
+              message: 'Workout context resolved',
+              hasPreferences: Boolean(preferences),
+              sessions7d: history7d?.sessions ?? 0,
+              latestFeedback: latestSession?.feedback ?? null
+            });
+
+            const preferredDuration =
+              typeof preferences?.preferredDurationMinutes === 'number' ? preferences.preferredDurationMinutes : null;
+            const preferredPlan = preferredDuration ? scaleWorkoutDuration(plan, preferredDuration) : plan;
+
+            return {
+              ...preferredPlan,
+              exercises: await attachExerciseMedia(preferredPlan.exercises).catch(() => preferredPlan.exercises)
+            };
+          }
+        });
+
+        const plan = run.output;
+        const responseText = formatWorkoutReply(plan);
+        const cards = buildCards({
+          reply: responseText,
+          reasoning: [
+            { title: 'Route', detail: 'Routed to workout coach because the prompt asked for exercise planning.' },
+            { title: 'Plan', detail: `Built ${plan.exercises.length} exercises for about ${plan.estimatedTotalMin} minutes.` },
+            { title: 'Safety', detail: 'Used low-impact substitutions when requested and included form cautions.' }
+          ],
+          route,
+          intent
+        });
+
+        return reply.status(200).send({
+          reply: responseText,
+          disclaimer: 'SteadyAI guidance is educational and supportive, not medical advice.',
+          routedTo: 'WORKOUT_COACH',
+          intent,
+          toolInvocations: [route.toolName],
+          agentRunId: run.runId,
+          workoutPlan: plan,
+          cards
+        });
+      }
 
       if (route.type === 'EDUCATOR') {
         const run = await steadyAiInternalRuntime.runAgent<
