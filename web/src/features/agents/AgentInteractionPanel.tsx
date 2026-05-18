@@ -34,15 +34,27 @@ const WORKSPACE_LINKS = [
 ];
 
 const INTENT_LABELS: Record<AssistantIntent, string> = {
-  FITNESS: 'Workout coach',
-  NUTRITION: 'Nutrition coach',
-  TRACKING: 'Tracking analyst',
-  CHECK_IN: 'Check-in coach',
-  COMMUNITY: 'Community guide',
-  REPORTS: 'Report analyst',
-  STORE: 'Store guide',
-  EDUCATION: 'Health educator',
-  GENERAL: 'SteadyAI coordinator'
+  FITNESS: 'workout planning',
+  NUTRITION: 'nutrition support',
+  TRACKING: 'progress tracking',
+  CHECK_IN: 'daily check-ins',
+  COMMUNITY: 'community support',
+  REPORTS: 'weekly progress',
+  STORE: 'coach feedback',
+  EDUCATION: 'health education',
+  GENERAL: 'your health routine'
+};
+
+const INTENT_ACTION_LABELS: Record<AssistantIntent, string> = {
+  FITNESS: 'View workout tools',
+  NUTRITION: 'Open nutrition tools',
+  TRACKING: 'Review progress',
+  CHECK_IN: 'Open check-in',
+  COMMUNITY: 'Open community',
+  REPORTS: 'View reports',
+  STORE: 'Explore coach feedback',
+  EDUCATION: 'Keep asking here',
+  GENERAL: 'Continue here'
 };
 
 export function AgentInteractionPanel({ embedded = false, onIntentDetected }: AgentInteractionPanelProps) {
@@ -182,18 +194,18 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
           <header className="border-b border-[#ead9ca] px-5 py-4 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8a4b22]">SteadyAI command center</p>
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8a4b22]">Your health companion</p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[#1d140d] sm:text-4xl">
-                  Tell SteadyAI what you need. The agents choose the path.
+                  What would you like help with today?
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5f5145]">
-                  Ask naturally about workouts, meals, progress, check-ins, community, or products. SteadyAI detects the intent,
-                  routes to the right agent, and gives you the next action.
+                  Ask for a workout, meal idea, progress summary, check-in, or a simple next step. SteadyAI turns your request
+                  into a practical plan you can use right away.
                 </p>
               </div>
               <div className="flex flex-col gap-2">
                 <div className="rounded-2xl border border-[#ead9ca] bg-white/75 px-4 py-3 text-sm">
-                  <p className="text-xs uppercase tracking-[0.2em] text-[#8a4b22]">Active agent</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#8a4b22]">Currently helping with</p>
                   <p className="mt-1 font-semibold text-[#1d140d]">{INTENT_LABELS[activeIntent]}</p>
                 </div>
                 <Link
@@ -253,7 +265,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
         {!embedded ? (
           <aside className="space-y-4">
             <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Workspaces</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Your tools</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 {WORKSPACE_LINKS.map((link) => (
                   <Link
@@ -268,9 +280,10 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
             </section>
 
             <section className="rounded-[30px] border border-white/70 bg-white/75 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Intent routing</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">Helpful next step</p>
               <p className="mt-2 text-sm leading-6 text-[#5f5145]">
-                Last detected intent: <span className="font-semibold text-[#1d140d]">{activeIntent}</span>
+                Based on your last message, SteadyAI is focused on{' '}
+                <span className="font-semibold text-[#1d140d]">{INTENT_LABELS[activeIntent]}</span>.
               </p>
               {suggestedRoute ? (
                 <button
@@ -278,11 +291,11 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
                   onClick={openSuggestedWorkspace}
                   className="mt-4 w-full rounded-full bg-[#1d140d] px-4 py-3 text-sm font-semibold text-white"
                 >
-                  Open {INTENT_LABELS[activeIntent]}
+                  {INTENT_ACTION_LABELS[activeIntent]}
                 </button>
               ) : (
                 <p className="mt-4 rounded-2xl bg-[#f7efe6] p-3 text-sm leading-6 text-[#5f5145]">
-                  Ask a goal-oriented question and SteadyAI will suggest the right workspace.
+                  Ask what you want to do next, and SteadyAI will suggest the most useful place to continue.
                 </p>
               )}
             </section>
