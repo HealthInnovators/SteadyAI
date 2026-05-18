@@ -1,13 +1,15 @@
 import type { FastifyInstance } from 'fastify';
-import { AgentEventType } from '@prisma/client';
+import { AgentEventType, NutritionInputType } from '@prisma/client';
 
 import { steadyAiInternalRuntime } from '../agents/runtime/steadyai-internal.runtime';
 import type { AgentCapabilityId } from '../agents/runtime/types';
+import { getPrismaClient } from '../db/prisma';
 import { optionalAuthenticateRequest } from '../middleware/auth';
 import type { AgentChatType } from '../services/agent-chat.service';
 import { generateAgentChatReply } from '../services/agent-chat.service';
 import { generateEducatorLesson } from '../services/educator.service';
 import { attachExerciseMedia } from '../services/exercise-media.service';
+import { ingestNutrition } from '../services/nutrition.service';
 import {
   getLatestWorkoutSessionInsight,
   getWorkoutHistorySummary,
@@ -81,6 +83,25 @@ interface AssistantMealPlan {
   options: AssistantMealOption[];
 }
 
+interface AssistantNutritionLog {
+  entryId: string;
+  mealText: string;
+  consumedAt: string;
+  totals: {
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+  };
+  todaySummary: {
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    entries: number;
+  };
+}
+
 function pickAssistantRoute(message: string): AssistantRoute {
   const normalized = message.toLowerCase();
 
@@ -101,6 +122,17 @@ function pickAssistantRoute(message: string): AssistantRoute {
   }
 
   return { type: 'AGENT', agentType: 'HABIT_COACH', toolName: 'steadyai.ask_agent' };
+}
+
+function isNutritionLogRequest(message: string): boolean {
+  return /\b(log|logged|track|record|save|ate|had)\b.*\b(meal|lunch|dinner|breakfast|snack|food|intake)\b/i.test(message)
+    || /\b(log|track|record|save)\b/i.test(message);
+}
+
+function extractMealText(message: string): string {
+  return message
+    .replace(/^\s*(please\s+)?(log|track|record|save)\s+(to\s+)?(my\s+)?(meal|lunch|dinner|breakfast|snack|food|intake)?\s*:?\s*/i, '')
+    .trim();
 }
 
 function detectAssistantIntent(message: string): AssistantIntent {
@@ -417,6 +449,80 @@ function formatMealReply(plan: AssistantMealPlan): string {
   return `${plan.title}. ${plan.goal}\n\n${options}\n\nPick the option that fits your appetite today. Adjust portions based on hunger, activity level, and any medical guidance you follow.`;
 }
 
+function knownMealItems(mealText: string) {
+  const normalized = mealText.toLowerCase();
+  if (!normalized.includes('lemon herb chicken salad')) {
+    return undefined;
+  }
+
+  return [
+    {
+      name: 'Lemon herb grilled chicken',
+      quantity: 4,
+      unit: 'oz',
+      calories: 190,
+      proteinG: 35,
+      carbsG: 0,
+      fatG: 5,
+      confidence: 0.85
+    },
+    {
+      name: 'Mixed greens and vegetables',
+      quantity: 3,
+      unit: 'cups',
+      calories: 80,
+      proteinG: 4,
+      carbsG: 14,
+      fatG: 1,
+      confidence: 0.8
+    },
+    {
+      name: 'Light lemon herb dressing',
+      quantity: 1,
+      unit: 'tbsp',
+      calories: 70,
+      proteinG: 0,
+      carbsG: 2,
+      fatG: 7,
+      confidence: 0.75
+    }
+  ];
+}
+
+async function getNutritionSummaryToday(userId: string): Promise<AssistantNutritionLog['todaySummary']> {
+  const prisma = getPrismaClient();
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+  const rows = await prisma.nutritionEntry.findMany({
+    where: {
+      userId,
+      consumedAt: { gte: start }
+    },
+    select: {
+      totalCalories: true,
+      totalProteinG: true,
+      totalCarbsG: true,
+      totalFatG: true
+    }
+  });
+
+  const totals = rows.reduce(
+    (acc, row) => {
+      acc.calories += row.totalCalories ?? 0;
+      acc.proteinG += Number(row.totalProteinG ?? 0);
+      acc.carbsG += Number(row.totalCarbsG ?? 0);
+      acc.fatG += Number(row.totalFatG ?? 0);
+      return acc;
+    },
+    { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 }
+  );
+
+  return {
+    ...totals,
+    entries: rows.length
+  };
+}
+
 export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post<{ Body: AssistantMessageBody }>(
     '/assistant/message',
@@ -536,6 +642,59 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       if (route.agentType === 'MEAL_PLANNER') {
+        if (isNutritionLogRequest(message)) {
+          if (!request.userId) {
+            return reply.status(401).send({ error: 'Sign in is required to log nutrition.' });
+          }
+
+          const mealText = extractMealText(message) || message;
+          const entry = await ingestNutrition({
+            userId: request.userId,
+            inputType: NutritionInputType.TEXT,
+            rawText: mealText,
+            items: knownMealItems(mealText)
+          });
+          const todaySummary = await getNutritionSummaryToday(request.userId);
+          const nutritionLog: AssistantNutritionLog = {
+            entryId: entry.id,
+            mealText,
+            consumedAt: entry.consumedAt.toISOString(),
+            totals: {
+              calories: Math.round(entry.totalCalories ?? 0),
+              proteinG: Number(entry.totalProteinG ?? 0),
+              carbsG: Number(entry.totalCarbsG ?? 0),
+              fatG: Number(entry.totalFatG ?? 0)
+            },
+            todaySummary: {
+              calories: Math.round(todaySummary.calories),
+              proteinG: Number(todaySummary.proteinG.toFixed(1)),
+              carbsG: Number(todaySummary.carbsG.toFixed(1)),
+              fatG: Number(todaySummary.fatG.toFixed(1)),
+              entries: todaySummary.entries
+            }
+          };
+          const responseText = `Logged ${mealText}. Estimated ${nutritionLog.totals.calories} calories and ${nutritionLog.totals.proteinG}g protein. Today you have ${nutritionLog.todaySummary.entries} nutrition ${nutritionLog.todaySummary.entries === 1 ? 'entry' : 'entries'} logged.`;
+          const cards = buildCards({
+            reply: responseText,
+            reasoning: [
+              { title: 'Saved', detail: 'This was treated as a nutrition log request, not a recipe request.' },
+              { title: 'Estimate', detail: 'Nutrition totals are estimates based on the meal description.' }
+            ],
+            route,
+            intent
+          });
+
+          return reply.status(200).send({
+            reply: responseText,
+            disclaimer: 'SteadyAI nutrition estimates are educational and approximate, not medical advice.',
+            routedTo: 'NUTRITION_LOG',
+            intent,
+            toolInvocations: ['steadyai.log_nutrition_intake'],
+            nutritionLog,
+            cards
+          });
+        }
+
         const run = await steadyAiInternalRuntime.runAgent<
           { message: string; intent: AssistantIntent; agentType: AgentChatType },
           AssistantMealPlan

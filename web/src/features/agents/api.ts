@@ -1,5 +1,5 @@
 import { createApiClient } from '@/lib/api';
-import type { AssistantCard, AssistantIntent, MealPlan, ReasoningStep, WorkoutPlan } from './types';
+import type { AssistantCard, AssistantIntent, MealPlan, NutritionLog, ReasoningStep, WorkoutPlan } from './types';
 
 interface AgentReplyResponse {
   reply: string;
@@ -10,6 +10,7 @@ interface AgentReplyResponse {
   cards?: AssistantCard[];
   workoutPlan?: WorkoutPlan;
   mealPlan?: MealPlan;
+  nutritionLog?: NutritionLog;
 }
 
 const AGENT_REQUEST_TIMEOUT_MS = 30000;
@@ -26,6 +27,7 @@ export async function requestAgentReply(
   cards?: AssistantCard[];
   workoutPlan?: WorkoutPlan;
   mealPlan?: MealPlan;
+  nutritionLog?: NutritionLog;
 }> {
   const api = createApiClient(token ?? undefined);
   const controller = new AbortController();
@@ -54,7 +56,8 @@ export async function requestAgentReply(
       reasoning,
       cards: response.cards,
       workoutPlan: response.workoutPlan,
-      mealPlan: response.mealPlan
+      mealPlan: response.mealPlan,
+      nutritionLog: response.nutritionLog
     };
   } finally {
     window.clearTimeout(timeout);

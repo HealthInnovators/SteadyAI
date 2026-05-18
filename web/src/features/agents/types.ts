@@ -61,6 +61,25 @@ export interface MealPlan {
   options: MealOption[];
 }
 
+export interface NutritionLog {
+  entryId: string;
+  mealText: string;
+  consumedAt: string;
+  totals: {
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+  };
+  todaySummary: {
+    calories: number;
+    proteinG: number;
+    carbsG: number;
+    fatG: number;
+    entries: number;
+  };
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'agent' | 'system';
@@ -70,5 +89,6 @@ export interface ChatMessage {
   cards?: AssistantCard[];
   workoutPlan?: WorkoutPlan;
   mealPlan?: MealPlan;
+  nutritionLog?: NutritionLog;
   createdAt: string;
 }

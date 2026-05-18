@@ -212,6 +212,7 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
         cards: reply.cards,
         workoutPlan: reply.workoutPlan,
         mealPlan: reply.mealPlan,
+        nutritionLog: reply.nutritionLog,
         createdAt: new Date().toISOString()
       };
       setActiveIntent(nextIntent);
@@ -555,6 +556,7 @@ function MessageBubble({
           <WorkoutPlanCard plan={message.workoutPlan} logState={workoutLogState} onLogWorkout={onLogWorkout} />
         ) : null}
         {!isUser && message.mealPlan ? <MealPlanCard plan={message.mealPlan} /> : null}
+        {!isUser && message.nutritionLog ? <NutritionLogCard log={message.nutritionLog} /> : null}
         {message.cards?.length ? (
           <div className="mt-4 space-y-3">
             {message.cards
@@ -600,6 +602,42 @@ function MessageBubble({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function NutritionLogCard({ log }: { log: NonNullable<ChatMessage['nutritionLog']> }) {
+  return (
+    <section className="mt-4 overflow-hidden rounded-[26px] border border-[#d8c4b3] bg-[#fffaf5] shadow-[0_18px_44px_rgba(80,48,24,0.12)]">
+      <div className="bg-[linear-gradient(135deg,_#34512a,_#8a4b22)] p-4 text-white">
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#f5d7b8]">Nutrition logged</p>
+        <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em]">{log.mealText}</h3>
+        <p className="mt-2 text-sm text-[#fff4e8]">
+          Saved {new Date(log.consumedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+        </p>
+      </div>
+
+      <div className="grid gap-3 p-4 sm:grid-cols-4">
+        {[
+          { label: 'Calories', value: `${log.totals.calories}` },
+          { label: 'Protein', value: `${log.totals.proteinG}g` },
+          { label: 'Carbs', value: `${log.totals.carbsG}g` },
+          { label: 'Fat', value: `${log.totals.fatG}g` }
+        ].map((item) => (
+          <div key={item.label} className="rounded-2xl border border-[#ead9ca] bg-white p-3 text-center">
+            <p className="text-xl font-semibold text-[#1d140d]">{item.value}</p>
+            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7a6555]">{item.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-[#ead9ca] bg-white/70 p-4">
+        <p className="text-sm font-semibold text-[#1d140d]">Today&apos;s total</p>
+        <p className="mt-1 text-sm leading-6 text-[#5f5145]">
+          {log.todaySummary.calories} calories across {log.todaySummary.entries} nutrition{' '}
+          {log.todaySummary.entries === 1 ? 'entry' : 'entries'}.
+        </p>
+      </div>
+    </section>
   );
 }
 
