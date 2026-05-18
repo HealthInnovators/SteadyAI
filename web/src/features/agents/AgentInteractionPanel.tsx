@@ -3,7 +3,7 @@
 import { useAuth } from '@/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, startTransition, useMemo, useState } from 'react';
+import { FormEvent, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { logWorkoutPlanSession, requestAgentReply, type WorkoutFeedback } from './api';
 import { AGENT_DISCLAIMER, STARTER_PROMPT_GROUPS, STARTER_PROMPTS } from './data';
 import type { AssistantIntent, ChatMessage, WorkoutPlan } from './types';
@@ -12,6 +12,48 @@ interface AgentInteractionPanelProps {
   embedded?: boolean;
   onIntentDetected?: (intent: AssistantIntent) => void;
 }
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: {
+    transcript: string;
+  };
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionLike;
+}
+
+type SpeechRecognitionWindow = Window &
+  typeof globalThis & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
 
 const INTENT_ROUTES: Partial<Record<AssistantIntent, string>> = {
   FITNESS: '/workouts',
@@ -62,18 +104,76 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
   const { token, userId } = useAuth();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [workoutLogState, setWorkoutLogState] = useState<Record<string, { status: 'saving' | 'saved' | 'error'; message: string }>>({});
   const [activePromptGroup, setActivePromptGroup] = useState<(typeof STARTER_PROMPT_GROUPS)[number]['id']>(
     STARTER_PROMPT_GROUPS[0].id
   );
   const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage()]);
   const [activeIntent, setActiveIntent] = useState<AssistantIntent>('GENERAL');
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceBaseInputRef = useRef('');
+  const finalTranscriptRef = useRef('');
 
   const visibleGroup = STARTER_PROMPT_GROUPS.find((group) => group.id === activePromptGroup) || STARTER_PROMPT_GROUPS[0];
   const suggestedRoute = activeIntent === 'GENERAL' ? null : INTENT_ROUTES[activeIntent] || null;
   const shellClass = embedded
     ? 'w-full'
     : 'min-h-screen w-full bg-[radial-gradient(circle_at_top_left,_rgba(255,237,213,0.9),_rgba(246,236,226,0.94)_35%,_#f4efe8_82%)] p-4 sm:p-6 lg:p-8';
+
+  useEffect(() => {
+    const speechWindow = window as SpeechRecognitionWindow;
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setIsVoiceSupported(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.onstart = () => {
+      setIsListening(true);
+      setVoiceMessage('Listening...');
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      setVoiceMessage(finalTranscriptRef.current ? 'Voice input added.' : null);
+    };
+    recognition.onerror = (event) => {
+      setIsListening(false);
+      setVoiceMessage(event.error === 'not-allowed' ? 'Microphone access was blocked.' : 'Voice input stopped. Please try again.');
+    };
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result?.[0]?.transcript ?? '';
+        if (result?.isFinal) {
+          finalTranscriptRef.current = `${finalTranscriptRef.current} ${transcript}`.trim();
+        } else {
+          interimTranscript = `${interimTranscript} ${transcript}`.trim();
+        }
+      }
+
+      const voiceText = `${finalTranscriptRef.current} ${interimTranscript}`.trim();
+      const base = voiceBaseInputRef.current.trim();
+      setInput([base, voiceText].filter(Boolean).join(' '));
+    };
+
+    recognitionRef.current = recognition;
+    setIsVoiceSupported(true);
+
+    return () => {
+      recognition.abort();
+      recognitionRef.current = null;
+    };
+  }, []);
 
   async function sendPrompt(promptText: string): Promise<void> {
     const prompt = promptText.trim();
@@ -172,6 +272,28 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
     void sendPrompt(input);
   }
 
+  function toggleVoiceInput(): void {
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      setVoiceMessage('Voice input is not supported in this browser.');
+      return;
+    }
+
+    if (isListening) {
+      recognition.stop();
+      return;
+    }
+
+    try {
+      voiceBaseInputRef.current = input;
+      finalTranscriptRef.current = '';
+      setVoiceMessage('Listening...');
+      recognition.start();
+    } catch {
+      setVoiceMessage('Voice input is already active. Please try again.');
+    }
+  }
+
   function openSuggestedWorkspace() {
     if (!suggestedRoute) {
       return;
@@ -249,14 +371,35 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
                 placeholder="Example: Create a low-impact workout, log my lunch, summarize my week, or draft a community check-in..."
               />
               <div className="flex flex-col gap-3 border-t border-[#ead9ca] pt-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-5 text-[#7a4b28]">{AGENT_DISCLAIMER}</p>
-                <button
-                  type="submit"
-                  disabled={!input.trim() || isSending}
-                  className="rounded-full bg-[#1d140d] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)] disabled:bg-[#ab9a8c]"
-                >
-                  {isSending ? 'Working...' : 'Send'}
-                </button>
+                <div>
+                  <p className="text-xs leading-5 text-[#7a4b28]">{AGENT_DISCLAIMER}</p>
+                  {voiceMessage ? <p className="mt-1 text-xs font-medium text-[#8a4b22]">{voiceMessage}</p> : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {isVoiceSupported ? (
+                    <button
+                      type="button"
+                      onClick={toggleVoiceInput}
+                      disabled={isSending}
+                      className={`rounded-full border px-4 py-3 text-sm font-semibold transition ${
+                        isListening
+                          ? 'border-[#b45309] bg-[#fff7ed] text-[#8a4b22]'
+                          : 'border-[#d8c4b3] bg-white text-[#4e4035] hover:bg-[#f3e7da]'
+                      } disabled:opacity-60`}
+                      aria-pressed={isListening}
+                      aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                    >
+                      {isListening ? 'Stop voice' : 'Speak'}
+                    </button>
+                  ) : null}
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || isSending}
+                    className="rounded-full bg-[#1d140d] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(29,20,13,0.2)] disabled:bg-[#ab9a8c]"
+                  >
+                    {isSending ? 'Working...' : 'Send'}
+                  </button>
+                </div>
               </div>
             </div>
           </form>
