@@ -4,9 +4,9 @@ import { useAuth } from '@/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, startTransition, useMemo, useState } from 'react';
-import { requestAgentReply } from './api';
+import { logWorkoutPlanSession, requestAgentReply, type WorkoutFeedback } from './api';
 import { AGENT_DISCLAIMER, STARTER_PROMPT_GROUPS, STARTER_PROMPTS } from './data';
-import type { AssistantIntent, ChatMessage } from './types';
+import type { AssistantIntent, ChatMessage, WorkoutPlan } from './types';
 
 interface AgentInteractionPanelProps {
   embedded?: boolean;
@@ -47,9 +47,10 @@ const INTENT_LABELS: Record<AssistantIntent, string> = {
 
 export function AgentInteractionPanel({ embedded = false, onIntentDetected }: AgentInteractionPanelProps) {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, userId } = useAuth();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [workoutLogState, setWorkoutLogState] = useState<Record<string, { status: 'saving' | 'saved' | 'error'; message: string }>>({});
   const [activePromptGroup, setActivePromptGroup] = useState<(typeof STARTER_PROMPT_GROUPS)[number]['id']>(
     STARTER_PROMPT_GROUPS[0].id
   );
@@ -126,6 +127,34 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
     }
   }
 
+  async function logWorkout(plan: WorkoutPlan, feedback: WorkoutFeedback = 'JUST_RIGHT'): Promise<void> {
+    setWorkoutLogState((prev) => ({
+      ...prev,
+      [plan.planId]: { status: 'saving', message: 'Saving workout session...' }
+    }));
+
+    try {
+      await logWorkoutPlanSession({
+        plan,
+        token,
+        userId,
+        feedback
+      });
+      setWorkoutLogState((prev) => ({
+        ...prev,
+        [plan.planId]: { status: 'saved', message: 'Workout session saved.' }
+      }));
+    } catch (error) {
+      setWorkoutLogState((prev) => ({
+        ...prev,
+        [plan.planId]: {
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Failed to save workout session.'
+        }
+      }));
+    }
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void sendPrompt(input);
@@ -182,6 +211,10 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
               <MessageBubble
                 key={message.id}
                 message={message}
+                workoutLogState={message.workoutPlan ? workoutLogState[message.workoutPlan.planId] : undefined}
+                onLogWorkout={(plan, feedback) => {
+                  void logWorkout(plan, feedback);
+                }}
                 onAction={(prompt) => {
                   void sendPrompt(prompt);
                 }}
@@ -323,9 +356,13 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
 
 function MessageBubble({
   message,
+  workoutLogState,
+  onLogWorkout,
   onAction
 }: {
   message: ChatMessage;
+  workoutLogState?: { status: 'saving' | 'saved' | 'error'; message: string };
+  onLogWorkout: (plan: WorkoutPlan, feedback: WorkoutFeedback) => void;
   onAction: (prompt: string) => void;
 }) {
   const isUser = message.role === 'user';
@@ -348,7 +385,9 @@ function MessageBubble({
             Intent: {message.routedIntent}
           </p>
         ) : null}
-        {!isUser && message.workoutPlan ? <WorkoutPlanCard plan={message.workoutPlan} /> : null}
+        {!isUser && message.workoutPlan ? (
+          <WorkoutPlanCard plan={message.workoutPlan} logState={workoutLogState} onLogWorkout={onLogWorkout} />
+        ) : null}
         {message.cards?.length ? (
           <div className="mt-4 space-y-3">
             {message.cards
@@ -373,9 +412,17 @@ function MessageBubble({
                           key={`${card.id}-${action.label}`}
                           type="button"
                           className="rounded-full border border-[#dccbbb] bg-white px-3 py-1.5 text-xs font-medium text-[#4e4035] hover:bg-[#f3e7da]"
-                          onClick={() => onAction(action.prompt)}
+                          onClick={() => {
+                            if (message.workoutPlan && action.label.toLowerCase().includes('log')) {
+                              onLogWorkout(message.workoutPlan, 'JUST_RIGHT');
+                              return;
+                            }
+                            onAction(action.prompt);
+                          }}
                         >
-                          {action.label}
+                          {message.workoutPlan && action.label.toLowerCase().includes('log') && workoutLogState?.status === 'saving'
+                            ? 'Saving...'
+                            : action.label}
                         </button>
                       ))}
                     </div>
@@ -389,7 +436,15 @@ function MessageBubble({
   );
 }
 
-function WorkoutPlanCard({ plan }: { plan: NonNullable<ChatMessage['workoutPlan']> }) {
+function WorkoutPlanCard({
+  plan,
+  logState,
+  onLogWorkout
+}: {
+  plan: WorkoutPlan;
+  logState?: { status: 'saving' | 'saved' | 'error'; message: string };
+  onLogWorkout: (plan: WorkoutPlan, feedback: WorkoutFeedback) => void;
+}) {
   return (
     <section className="mt-4 overflow-hidden rounded-[26px] border border-[#d8c4b3] bg-[#fff7ed] shadow-[0_18px_44px_rgba(80,48,24,0.12)]">
       <div className="bg-[linear-gradient(135deg,_#1d140d,_#70421f)] p-4 text-white">
@@ -410,6 +465,32 @@ function WorkoutPlanCard({ plan }: { plan: NonNullable<ChatMessage['workoutPlan'
         {plan.exercises.map((exercise, index) => (
           <ExerciseCard key={`${plan.planId}-${exercise.name}-${index}`} exercise={exercise} index={index} />
         ))}
+      </div>
+
+      <div className="border-t border-[#ead9ca] bg-white/70 p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a4b22]">Log this session</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[
+            { feedback: 'TOO_EASY' as const, label: 'Too easy' },
+            { feedback: 'JUST_RIGHT' as const, label: 'Just right' },
+            { feedback: 'TOO_HARD' as const, label: 'Too hard' }
+          ].map((option) => (
+            <button
+              key={option.feedback}
+              type="button"
+              disabled={logState?.status === 'saving'}
+              onClick={() => onLogWorkout(plan, option.feedback)}
+              className="rounded-full border border-[#dccbbb] bg-[#fffaf5] px-3 py-2 text-xs font-semibold text-[#4e4035] hover:bg-[#f3e7da] disabled:opacity-60"
+            >
+              {logState?.status === 'saving' ? 'Saving...' : option.label}
+            </button>
+          ))}
+        </div>
+        {logState ? (
+          <p className={`mt-3 text-xs ${logState.status === 'error' ? 'text-red-700' : 'text-[#5f5145]'}`}>
+            {logState.message}
+          </p>
+        ) : null}
       </div>
     </section>
   );

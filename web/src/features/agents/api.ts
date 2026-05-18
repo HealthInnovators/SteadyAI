@@ -13,6 +13,8 @@ interface AgentReplyResponse {
 
 const AGENT_REQUEST_TIMEOUT_MS = 30000;
 
+export type WorkoutFeedback = 'TOO_EASY' | 'JUST_RIGHT' | 'TOO_HARD';
+
 export async function requestAgentReply(
   prompt: string,
   token?: string | null
@@ -54,4 +56,32 @@ export async function requestAgentReply(
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+export async function logWorkoutPlanSession(options: {
+  plan: WorkoutPlan;
+  token?: string | null;
+  userId?: string | null;
+  feedback: WorkoutFeedback;
+}): Promise<void> {
+  if (!options.userId) {
+    throw new Error('A signed-in user profile is required to log workouts.');
+  }
+
+  const api = createApiClient(options.token ?? undefined);
+  const completedAt = new Date().toISOString();
+
+  await api.post('/api/workouts/session-summary', {
+    body: {
+      userId: options.userId,
+      sessionId: `assistant-${options.plan.planId}-${completedAt.slice(0, 10)}`,
+      completedAt,
+      totalDurationMinutes: options.plan.estimatedTotalMin,
+      completedExercises: options.plan.exercises.length,
+      totalExercises: options.plan.exercises.length,
+      feedback: options.feedback,
+      workoutPlan: options.plan,
+      sourceApp: 'steadyai-assistant-chat'
+    }
+  });
 }
