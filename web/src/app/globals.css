@@ -15,6 +15,15 @@
   --safe-left: env(safe-area-inset-left);
 }
 
+:root[data-theme="dark"] {
+  --background: #15100c;
+  --foreground: #fff7ed;
+  --surface: rgba(39, 29, 22, 0.88);
+  --surface-strong: #231914;
+  --border: #4a372b;
+  --muted: #d6c2ae;
+}
+
 html {
   background: var(--background);
   scroll-behavior: smooth;

@@ -8,11 +8,12 @@ import { LegalLinksCard } from '@/features/settings/components/LegalLinksCard';
 import { PrivacyCard } from '@/features/settings/components/PrivacyCard';
 import { ConnectedServicesCard } from '@/features/settings/components/ConnectedServicesCard';
 import { NotificationsCard } from '@/features/settings/components/NotificationsCard';
+import { ThemeCard } from '@/features/settings/components/ThemeCard';
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <section className="space-y-4">
-            <h2 className="px-1 text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22]">{title}</h2>
+            <h2 className="px-1 text-xs font-bold uppercase tracking-[0.24em] text-[#8a4b22] dark:text-[#f3c99f]">{title}</h2>
             <div className="space-y-4">
                 {children}
             </div>
@@ -59,10 +60,10 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen px-4 pb-28 pt-4 sm:px-6 md:p-8">
-      <header className="mb-5 rounded-[34px] border border-white/80 bg-[#fffaf5]/84 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.1)] sm:p-7">
-        <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#8a4b22]">Account controls</p>
-        <h1 className="mt-3 text-3xl font-bold tracking-[-0.05em] text-[#1d140d] sm:text-4xl">Settings</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f5145] sm:text-base">
+      <header className="mb-5 rounded-[34px] border border-white/80 bg-[#fffaf5]/84 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.1)] dark:border-[#4a372b] dark:bg-[#231914]/88 dark:shadow-[0_18px_70px_rgba(0,0,0,0.28)] sm:p-7">
+        <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#8a4b22] dark:text-[#f3c99f]">Account controls</p>
+        <h1 className="mt-3 text-3xl font-bold tracking-[-0.05em] text-[#1d140d] dark:text-[#fff7ed] sm:text-4xl">Settings</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f5145] dark:text-[#d6c2ae] sm:text-base">
           Manage your profile, privacy choices, connected devices, notifications, and legal information.
         </p>
       </header>
@@ -79,6 +80,10 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-5">
+          <SettingsSection title="Appearance">
+            <ThemeCard />
+          </SettingsSection>
+
           <SettingsSection title="Connected Devices">
             <ConnectedServicesCard />
           </SettingsSection>
