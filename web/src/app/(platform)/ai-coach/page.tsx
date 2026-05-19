@@ -1,7 +1,7 @@
 'use client';
 
 import { useRequireAuth } from '@/auth';
-import { AgentInteractionPanel } from '@/features/agents';
+import { AgentInteractionPanel } from '@/features/ai-coach';
 
 export default function AiCoachPage() {
   const { isHydrated, isAuthorized } = useRequireAuth();

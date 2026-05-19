@@ -1,7 +1,7 @@
 'use client';
 
-import { AgentInteractionPanel } from '@/features/agents';
-import type { AssistantIntent } from '@/features/agents/types';
+import { AgentInteractionPanel } from '@/features/ai-coach';
+import type { AssistantIntent } from '@/features/ai-coach/types';
 import { useRouter } from 'next/navigation';
 import { startTransition } from 'react';
 
