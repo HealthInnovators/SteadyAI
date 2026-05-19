@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/auth';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { createApiClient, type WorkoutHistorySummary } from '@/lib/api';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -13,7 +14,7 @@ function HistoryStat({ label, value }: { label: string; value: string | number }
   );
 }
 
-export function RecentSessionsCard() {
+export function RecentSessionsCard({ refreshKey = 0 }: { refreshKey?: number }) {
   const { token } = useAuth();
   const api = useMemo(() => createApiClient(token ?? undefined), [token]);
   const [history, setHistory] = useState<WorkoutHistorySummary | null>(null);
@@ -32,18 +33,11 @@ export function RecentSessionsCard() {
       }
     }
     fetchHistory();
-  }, [api]);
+  }, [api, refreshKey]);
 
   if (loading) {
     return (
-      <div className="animate-pulse rounded-[32px] border border-white/80 bg-white/60 p-5">
-        <div className="h-4 w-36 rounded-full bg-[#ead9ca]" />
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="h-24 rounded-[22px] bg-[#f3e7da]" />
-          ))}
-        </div>
-      </div>
+      <SkeletonCard rows={5} className="min-h-52" />
     );
   }
 

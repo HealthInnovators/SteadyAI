@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/auth';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -52,7 +53,7 @@ export function AppTopNav() {
     <header className="sticky top-0 z-40 border-b border-[#ead9ca] bg-[#fffaf5]/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3 text-[#1d140d]">
-          <img src="/brand/steadyai-logo.svg" alt="SteadyAI logo" className="h-10 w-10 rounded-[14px]" />
+          <Image src="/brand/steadyai-logo.svg" alt="SteadyAI logo" width={40} height={40} priority className="h-10 w-10 rounded-[14px]" />
           <div className="min-w-0">
             <p className="text-sm font-bold uppercase tracking-[0.26em] text-[#1d140d]">SteadyAI</p>
             <p className="text-xs text-[#7a4b28]">GoodHealth247</p>

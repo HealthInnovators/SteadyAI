@@ -28,7 +28,7 @@ export default function ExperiencePage() {
               clearError();
               router.push('/onboarding/goal');
             }}
-            className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium"
+            className="min-h-14 w-full rounded-full border border-[#d8c4b3] bg-white/72 px-5 py-4 text-base font-semibold text-[#4e4035] transition active:scale-[0.99] dark:border-[#4a372b] dark:bg-[#231914] dark:text-[#fff7ed]"
           >
             Back
           </button>
@@ -39,7 +39,7 @@ export default function ExperiencePage() {
               router.push('/onboarding/diet');
             }}
             disabled={!draft.experienceLevel}
-            className="w-full rounded-lg bg-black px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+            className="min-h-14 w-full rounded-full bg-[#1d140d] px-5 py-4 text-base font-semibold text-white shadow-[0_14px_36px_rgba(29,20,13,0.18)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-[#d8c4b3] disabled:text-[#7a6a5b] dark:bg-[#fff7ed] dark:text-[#1d140d] dark:disabled:bg-[#4a372b] dark:disabled:text-[#a8927c]"
           >
             Continue
           </button>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/auth';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { createApiClient, type WorkoutPreferences } from '@/lib/api';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -35,16 +36,7 @@ export function WorkoutPreferencesCard() {
   }, [api]);
 
   if (loading) {
-    return (
-      <div className="animate-pulse rounded-[32px] border border-white/80 bg-white/60 p-5">
-        <div className="h-4 w-32 rounded-full bg-[#ead9ca]" />
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="h-20 rounded-[20px] bg-[#f3e7da]" />
-          ))}
-        </div>
-      </div>
-    );
+    return <SkeletonCard rows={5} className="min-h-52" />;
   }
 
   return (

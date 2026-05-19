@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/auth';
 import { createApiClient, type PlatformContext, UserRole } from '@/lib/api';
+import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 const ONBOARDING_COMPLETED_KEY = 'steadyai.onboarding.completed';
@@ -15,6 +16,8 @@ const PlatformContext = createContext<IPlatformContext | undefined>(undefined);
 
 export function PlatformProvider({ children }: { children: React.ReactNode }) {
     const { token } = useAuth();
+    const pathname = usePathname();
+    const router = useRouter();
     const api = useMemo(() => createApiClient(token ?? undefined), [token]);
     const [context, setContext] = useState<PlatformContext | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -31,6 +34,11 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
             const platformContext = await api.getPlatformContext();
             if (platformContext.userIdentity.onboardingCompleted) {
                 window.localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+                if (pathname.startsWith('/onboarding')) {
+                    router.replace('/ai-coach');
+                }
+            } else if (!pathname.startsWith('/onboarding')) {
+                router.replace('/onboarding');
             }
             setContext(platformContext);
         } catch (err) {
@@ -40,7 +48,7 @@ export function PlatformProvider({ children }: { children: React.ReactNode }) {
         }
       }
       fetchContext();
-    }, [api, token]);
+    }, [api, pathname, router, token]);
 
     const value: IPlatformContext = useMemo(() => ({
         ...(context || {

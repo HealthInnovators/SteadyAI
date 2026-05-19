@@ -1,7 +1,9 @@
 'use client';
 
 import { useAuth } from '@/auth';
+import { SkeletonCard } from '@/components/SkeletonCard';
 import { createApiClient, type ExerciseMedia } from '@/lib/api';
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 
 export function ExerciseLibrary() {
@@ -35,17 +37,7 @@ export function ExerciseLibrary() {
   }, [api]);
 
   if (loading) {
-    return (
-      <div className="animate-pulse rounded-[32px] border border-white/80 bg-white/60 p-5">
-        <div className="h-4 w-32 rounded-full bg-[#ead9ca]" />
-        <div className="mt-4 h-12 rounded-[20px] bg-[#f3e7da]" />
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="h-48 rounded-[24px] bg-[#f3e7da]" />
-          ))}
-        </div>
-      </div>
-    );
+    return <SkeletonCard rows={7} className="min-h-80" />;
   }
 
   return (
@@ -72,7 +64,15 @@ export function ExerciseLibrary() {
             <article key={item.id} className="overflow-hidden rounded-[26px] border border-white/80 bg-white/78 shadow-[0_12px_36px_rgba(80,48,24,0.08)]">
               <div className="relative bg-[#1d140d]/5">
                 {item.gifUrl ? (
-                  <img src={item.gifUrl} alt={item.displayName} className="aspect-video w-full object-cover" />
+                  <Image
+                    src={item.gifUrl}
+                    alt={item.displayName}
+                    width={420}
+                    height={236}
+                    sizes="(min-width: 1536px) 320px, (min-width: 640px) 46vw, 92vw"
+                    className="aspect-video w-full object-cover"
+                    unoptimized
+                  />
                 ) : (
                   <div className="flex aspect-video items-center justify-center bg-[#f3e7da] px-4 text-center text-sm font-semibold text-[#7a4b28]">
                     {item.thumbnailLabel || item.displayName}

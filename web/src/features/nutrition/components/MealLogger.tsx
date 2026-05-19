@@ -11,7 +11,7 @@ const QUICK_MEAL_PROMPTS = [
   'Rice, dal, vegetables, and curd'
 ];
 
-export function MealLogger({ onMealLogged }: { onMealLogged: (newEntry: NutritionEntry) => void }) {
+export function MealLogger({ onMealLogged, compact = false }: { onMealLogged: (newEntry: NutritionEntry) => void; compact?: boolean }) {
     const { token } = useAuth();
     const api = useMemo(() => createApiClient(token ?? undefined), [token]);
     const [nutritionInput, setNutritionInput] = useState('');
@@ -50,7 +50,7 @@ export function MealLogger({ onMealLogged }: { onMealLogged: (newEntry: Nutritio
     }
 
   return (
-    <section className="rounded-[34px] border border-white/80 bg-[linear-gradient(135deg,_#1d140d,_#7a4b28)] p-5 text-white shadow-[0_22px_70px_rgba(80,48,24,0.18)] sm:p-6">
+    <section className={`${compact ? '' : 'rounded-[34px] border border-white/80 p-5 shadow-[0_22px_70px_rgba(80,48,24,0.18)] sm:p-6'} bg-[linear-gradient(135deg,_#1d140d,_#7a4b28)] text-white dark:from-[#0f0b08] dark:to-[#4a372b]`}>
       <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f1d6b7]">Quick log</p>
       <h3 className="mt-2 text-2xl font-bold tracking-[-0.04em]">What did you eat?</h3>
       <p className="mt-2 text-sm leading-6 text-[#fff4e7]">
@@ -79,7 +79,7 @@ export function MealLogger({ onMealLogged }: { onMealLogged: (newEntry: Nutritio
             type="button"
             onClick={submitNutritionLog}
             disabled={isSaving}
-            className="mt-3 w-full rounded-full bg-[#fffaf5] px-5 py-4 text-sm font-bold text-[#1d140d] shadow-[0_12px_28px_rgba(29,20,13,0.18)] disabled:bg-[#ab9a8c]"
+            className="mt-3 min-h-14 w-full rounded-full bg-[#fffaf5] px-5 py-4 text-base font-bold text-[#1d140d] shadow-[0_12px_28px_rgba(29,20,13,0.18)] transition active:scale-[0.99] disabled:bg-[#ab9a8c]"
         >
             {isSaving ? 'Analyzing...' : 'Log Meal'}
         </button>

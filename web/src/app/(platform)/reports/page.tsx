@@ -7,6 +7,7 @@ import { CommunityReport } from '@/features/reports/components/CommunityReport';
 import { NutritionReport } from '@/features/reports/components/NutritionReport';
 import { WorkoutReport } from '@/features/reports/components/WorkoutReport';
 import Link from 'next/link';
+import { SkeletonCard } from '@/components/SkeletonCard';
 
 export default function ReportsPage() {
   const { token } = useAuth();
@@ -32,12 +33,12 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen px-4 pb-28 pt-4 sm:px-6 md:p-8">
-      <header className="mb-5 rounded-[34px] border border-white/80 bg-[#fffaf5]/84 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.1)] sm:p-7">
-        <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#8a4b22]">30-day progress</p>
+      <header className="mb-5 rounded-[34px] border border-white/80 bg-[#fffaf5]/84 p-5 shadow-[0_18px_70px_rgba(80,48,24,0.1)] dark:border-[#4a372b] dark:bg-[#231914]/88 dark:shadow-[0_18px_70px_rgba(0,0,0,0.28)] sm:p-7">
+        <p className="text-xs font-bold uppercase tracking-[0.26em] text-[#8a4b22] dark:text-[#f3c99f]">30-day progress</p>
         <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-[-0.05em] text-[#1d140d] sm:text-4xl">Reports</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f5145] sm:text-base">
+            <h1 className="text-3xl font-bold tracking-[-0.05em] text-[#1d140d] dark:text-[#fff7ed] sm:text-4xl">Reports</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f5145] dark:text-[#d6c2ae] sm:text-base">
               See what you actually did, where your routine is gaining momentum, and what SteadyAI recommends next.
             </p>
           </div>
@@ -114,15 +115,7 @@ function LoadingReports() {
   return (
     <div className="space-y-4">
       {[0, 1, 2].map((item) => (
-        <div key={item} className="animate-pulse rounded-[32px] border border-white/80 bg-white/60 p-5">
-          <div className="h-4 w-28 rounded-full bg-[#ead9ca]" />
-          <div className="mt-4 h-7 w-48 rounded-full bg-[#ead9ca]" />
-          <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[0, 1, 2, 3].map((tile) => (
-              <div key={tile} className="h-24 rounded-[22px] bg-[#f3e7da]" />
-            ))}
-          </div>
-        </div>
+        <SkeletonCard key={item} rows={6} className="min-h-52" />
       ))}
     </div>
   );

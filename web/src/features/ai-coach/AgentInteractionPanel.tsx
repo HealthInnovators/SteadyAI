@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/auth';
+import Image from 'next/image';
 import Link from 'next/link';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { logWorkoutPlanSession, requestAgentReply, type WorkoutFeedback } from './api';
@@ -677,11 +678,12 @@ function MealPlanCard({ plan }: { plan: NonNullable<ChatMessage['mealPlan']> }) 
         {plan.options.map((option, index) => (
           <article key={`${plan.planId}-${option.name}-${index}`} className="overflow-hidden rounded-[22px] border border-[#ead9ca] bg-white shadow-[0_10px_24px_rgba(80,48,24,0.08)]">
             <div className="relative h-40 overflow-hidden bg-[#26351f]">
-              <img
-                className="h-full w-full object-cover"
+              <Image
+                className="object-cover"
                 src={option.imageUrl}
                 alt={option.name}
-                loading="lazy"
+                fill
+                sizes="(min-width: 1024px) 260px, 86vw"
               />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
                 <p className="text-sm font-semibold leading-5 text-white">{option.name}</p>
@@ -820,11 +822,13 @@ function ExerciseCard({
               aria-label={`${exercise.name} video demonstration`}
             />
           ) : (
-            <img
-              className="h-full w-full object-cover"
+            <Image
+              className="object-cover"
               src={mediaUrl}
               alt={`${exercise.name} demonstration`}
-              loading="lazy"
+              fill
+              sizes="(min-width: 1024px) 260px, 86vw"
+              unoptimized
             />
           )
         ) : (

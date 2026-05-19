@@ -3,6 +3,7 @@
 import { isSupabaseBrowserAuthConfigured } from '@/config/env';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { usePathname, useRouter } from 'next/navigation';
+import { resolvePostAuthRedirect, sanitizeAuthRedirect } from './routing';
 import {
   createContext,
   useCallback,
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isGoogleAuthConfigured = isSupabaseBrowserAuthConfigured();
-  const isAppleAuthConfigured = isGoogleAuthConfigured;
+  const isAppleAuthConfigured = isGoogleAuthConfigured && process.env.NEXT_PUBLIC_ENABLE_APPLE_AUTH === 'true';
   const isPasswordAuthConfigured = isGoogleAuthConfigured;
 
   useEffect(() => {
@@ -216,7 +217,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           persistDevUserId(data.user.id);
         }
 
-        const target = options?.redirectTo ?? pathname ?? '/';
+        const target = data.session?.access_token
+          ? await resolvePostAuthRedirect(data.session.access_token, options?.redirectTo ?? pathname ?? '/onboarding')
+          : sanitizeAuthRedirect(options?.redirectTo ?? pathname ?? '/onboarding');
         if (target) {
           router.replace(target);
         }
@@ -244,7 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const emailRedirectTo = new URL('/auth/callback', window.location.origin);
-      const target = options?.redirectTo ?? pathname ?? '/onboarding';
+      const target = sanitizeAuthRedirect(options?.redirectTo ?? pathname ?? '/onboarding');
       emailRedirectTo.searchParams.set('next', target);
 
       setIsSigningUpWithPassword(true);
@@ -266,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (data.user?.id) {
             persistDevUserId(data.user.id);
           }
-          router.replace(target);
+          router.replace(await resolvePostAuthRedirect(data.session.access_token, target));
           return { needsEmailConfirmation: false };
         }
 
@@ -352,7 +355,7 @@ async function signInWithOAuthProvider(provider: 'google' | 'apple', pathname: s
   }
 
   const redirectTo = new URL('/auth/callback', window.location.origin);
-  const next = redirectToOverride || (pathname && pathname !== '/' ? pathname : '/onboarding');
+  const next = sanitizeAuthRedirect(redirectToOverride || (pathname && pathname !== '/' ? pathname : '/onboarding'));
   if (next) {
     redirectTo.searchParams.set('next', next);
   }

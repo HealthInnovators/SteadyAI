@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/auth';
 import { createApiClient } from '@/lib/api';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
@@ -198,7 +199,7 @@ export default function PublicHomePage() {
           {productModules.map((module) => (
             <article key={module.title} className="overflow-hidden rounded-[32px] border border-white/75 bg-[#fffaf5]/82 shadow-[0_18px_70px_rgba(80,48,24,0.08)]">
               <div className="flex h-44 items-center justify-center bg-gradient-to-br from-[#f7dcc0] to-[#eef0dd] p-6">
-                <img src={module.image} alt="" className="h-full max-h-32 w-full object-contain" />
+                <Image src={module.image} alt="" width={240} height={160} className="h-full max-h-32 w-full object-contain" sizes="(min-width: 640px) 240px, 70vw" />
               </div>
               <div className="p-6">
                 <h3 className="text-xl font-semibold">{module.title}</h3>
