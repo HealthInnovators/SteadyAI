@@ -60,52 +60,67 @@ export function ExerciseLibrary() {
       </label>
       {media.length > 0 ? (
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-          {filteredMedia.map((item) => (
-            <article key={item.id} className="overflow-hidden rounded-[26px] border border-white/80 bg-white/78 shadow-[0_12px_36px_rgba(80,48,24,0.08)]">
-              <div className="relative bg-[#1d140d]/5">
-                {item.gifUrl ? (
-                  <Image
-                    src={item.gifUrl}
-                    alt={item.displayName}
-                    width={420}
-                    height={236}
-                    sizes="(min-width: 1536px) 320px, (min-width: 640px) 46vw, 92vw"
-                    className="aspect-video w-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex aspect-video items-center justify-center bg-[#f3e7da] px-4 text-center text-sm font-semibold text-[#7a4b28]">
-                    {item.thumbnailLabel || item.displayName}
-                  </div>
-                )}
-              </div>
-              <div className="p-4">
-                <p className="text-base font-bold tracking-[-0.03em] text-[#1d140d]">{item.displayName}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {item.videoUrl ? (
-                    <a
-                      href={item.videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-full bg-[#1d140d] px-3 py-2 text-xs font-semibold text-white"
-                    >
-                      Watch video
-                    </a>
-                  ) : null}
-                  {item.demoUrl ? (
-                    <a
-                      href={item.demoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-full border border-[#d8c4b3] bg-white px-3 py-2 text-xs font-semibold text-[#4e4035]"
-                    >
-                      Open demo
-                    </a>
-                  ) : null}
+          {filteredMedia.map((item) => {
+            const mediaUrl = item.mediaUrl || item.videoUrl || item.gifUrl;
+            const mediaType = item.mediaType || (item.videoUrl ? 'MP4' : item.gifUrl ? 'GIF' : 'NONE');
+
+            return (
+              <article key={item.id} className="overflow-hidden rounded-[26px] border border-white/80 bg-white/78 shadow-[0_12px_36px_rgba(80,48,24,0.08)]">
+                <div className="relative bg-[#1d140d]/5">
+                  {mediaUrl && mediaType === 'MP4' ? (
+                    <video
+                      src={mediaUrl}
+                      className="aspect-video w-full object-cover"
+                      controls
+                      muted
+                      playsInline
+                      preload="metadata"
+                      aria-label={`${item.displayName} video demonstration`}
+                    />
+                  ) : mediaUrl ? (
+                    <Image
+                      src={mediaUrl}
+                      alt={item.displayName}
+                      width={420}
+                      height={236}
+                      sizes="(min-width: 1536px) 320px, (min-width: 640px) 46vw, 92vw"
+                      className="aspect-video w-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex aspect-video items-center justify-center bg-[#f3e7da] px-4 text-center text-sm font-semibold text-[#7a4b28]">
+                      {item.thumbnailLabel || item.displayName}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </article>
-          ))}
+                <div className="p-4">
+                  <p className="text-base font-bold tracking-[-0.03em] text-[#1d140d]">{item.displayName}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {mediaUrl ? (
+                      <a
+                        href={mediaUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full bg-[#1d140d] px-3 py-2 text-xs font-semibold text-white"
+                      >
+                        {mediaType === 'MP4' ? 'Watch video' : 'Open media'}
+                      </a>
+                    ) : null}
+                    {item.demoUrl ? (
+                      <a
+                        href={item.demoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-[#d8c4b3] bg-white px-3 py-2 text-xs font-semibold text-[#4e4035]"
+                      >
+                        Open demo
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
         </div>
       ) : null}
       {media.length > 0 && filteredMedia.length === 0 ? (

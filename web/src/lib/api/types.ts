@@ -65,6 +65,8 @@ export interface ExerciseMedia {
   normalizedName: string;
   displayName: string;
   thumbnailLabel: string | null;
+  mediaUrl: string | null;
+  mediaType: 'GIF' | 'MP4' | 'IMAGE' | 'NONE';
   gifUrl: string | null;
   videoUrl: string | null;
   demoUrl: string | null;

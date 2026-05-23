@@ -28,6 +28,8 @@ export interface WorkoutExercise {
   durationMin: number;
   reps: string;
   thumbnailLabel?: string;
+  mediaUrl?: string;
+  mediaType?: 'GIF' | 'MP4' | 'IMAGE' | 'NONE';
   gifUrl?: string;
   videoUrl?: string;
   demoUrl?: string;

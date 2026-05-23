@@ -109,6 +109,13 @@ enum NutritionEntryStatus {
   FAILED
 }
 
+enum ExerciseMediaType {
+  GIF
+  MP4
+  IMAGE
+  NONE
+}
+
 enum AgentRunStatus {
   RUNNING
   SUCCESS
@@ -180,6 +187,8 @@ model ExerciseMedia {
   normalizedName String   @unique
   displayName    String
   thumbnailLabel String?
+  mediaUrl       String?
+  mediaType      ExerciseMediaType @default(NONE)
   gifUrl         String?
   videoUrl       String?
   demoUrl        String?

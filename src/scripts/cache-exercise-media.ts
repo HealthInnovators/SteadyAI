@@ -29,20 +29,24 @@ async function main(): Promise<void> {
 
   const rows = await prisma.exerciseMedia.findMany({
     where: {
-      OR: [{ gifUrl: { not: null } }, { videoUrl: { not: null } }]
+      OR: [{ mediaUrl: { not: null } }, { gifUrl: { not: null } }, { videoUrl: { not: null } }]
     }
   });
 
   let updated = 0;
 
   for (const row of rows) {
-    const updates: { gifUrl?: string; videoUrl?: string } = {};
+    const updates: { mediaUrl?: string; mediaType?: 'GIF' | 'MP4' | 'IMAGE' | 'NONE'; gifUrl?: string; videoUrl?: string } = {};
 
     if (row.gifUrl && !row.gifUrl.includes('/media/exercises/')) {
       const gifBuffer = await downloadBinary(row.gifUrl);
       const gifName = `${row.normalizedName.replace(/\s+/g, '-')}.gif`;
       await writeFile(path.join(mediaDir, gifName), gifBuffer);
       updates.gifUrl = `${publicBaseUrl}/media/exercises/${gifName}`;
+      if (!row.videoUrl && (!row.mediaUrl || row.mediaUrl === row.gifUrl)) {
+        updates.mediaUrl = updates.gifUrl;
+        updates.mediaType = 'GIF';
+      }
     }
 
     if (row.videoUrl && !row.videoUrl.includes('/media/exercises/')) {
@@ -50,6 +54,8 @@ async function main(): Promise<void> {
       const videoName = `${row.normalizedName.replace(/\s+/g, '-')}.mp4`;
       await writeFile(path.join(mediaDir, videoName), videoBuffer);
       updates.videoUrl = `${publicBaseUrl}/media/exercises/${videoName}`;
+      updates.mediaUrl = updates.videoUrl;
+      updates.mediaType = 'MP4';
     }
 
     if (Object.keys(updates).length > 0) {

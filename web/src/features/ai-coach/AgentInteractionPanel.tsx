@@ -804,17 +804,19 @@ function ExerciseCard({
   exercise: NonNullable<ChatMessage['workoutPlan']>['exercises'][number];
   index: number;
 }) {
-  const mediaUrl = exercise.gifUrl || exercise.videoUrl || null;
+  const mediaUrl = exercise.mediaUrl || exercise.videoUrl || exercise.gifUrl || null;
+  const mediaType = exercise.mediaType || (exercise.videoUrl && !exercise.gifUrl ? 'MP4' : exercise.gifUrl ? 'GIF' : 'NONE');
+  const demoUrl = exercise.demoUrl || mediaUrl;
   const mediaLabel = exercise.thumbnailLabel || exercise.name;
 
   return (
     <article className="overflow-hidden rounded-[22px] border border-[#ead9ca] bg-white shadow-[0_10px_24px_rgba(80,48,24,0.08)]">
       <div className="relative flex h-36 items-center justify-center overflow-hidden bg-[#1d140d]">
         {mediaUrl ? (
-          exercise.videoUrl && !exercise.gifUrl ? (
+          mediaType === 'MP4' ? (
             <video
               className="h-full w-full object-cover"
-              src={exercise.videoUrl}
+              src={mediaUrl}
               controls
               muted
               playsInline
@@ -852,9 +854,9 @@ function ExerciseCard({
           </span>
         </div>
         <p className="mt-3 text-xs leading-5 text-[#5f5145]">{exercise.note}</p>
-        {exercise.demoUrl || exercise.videoUrl || exercise.gifUrl ? (
+        {demoUrl ? (
           <a
-            href={exercise.demoUrl || exercise.videoUrl || exercise.gifUrl}
+            href={demoUrl}
             target="_blank"
             rel="noreferrer"
             className="mt-3 inline-flex rounded-full border border-[#dccbbb] px-3 py-1.5 text-xs font-semibold text-[#4e4035] hover:bg-[#f3e7da]"

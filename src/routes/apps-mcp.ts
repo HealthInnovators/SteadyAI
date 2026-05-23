@@ -47,6 +47,8 @@ interface WorkoutExercise {
   durationMin: number;
   reps: string;
   thumbnailLabel?: string;
+  mediaUrl?: string;
+  mediaType?: 'GIF' | 'MP4' | 'IMAGE' | 'NONE';
   gifUrl?: string;
   videoUrl?: string;
   demoUrl?: string;
@@ -1641,18 +1643,14 @@ const WORKOUT_WIDGET_HTML = String.raw`<!doctype html>
           const card = document.createElement("article");
           const active = index === session.activeIndex && session.mode !== "complete";
           card.className = "exercise" + (doneState ? " done" : "") + (active ? " active" : "");
+          const primaryMediaUrl = ex.mediaUrl || ex.videoUrl || ex.gifUrl || "";
+          const primaryMediaType = ex.mediaType || (ex.videoUrl ? "MP4" : ex.gifUrl ? "GIF" : "NONE");
 
           let media;
-          if (ex.gifUrl) {
-            media = document.createElement("img");
-            media.className = "thumb";
-            media.src = ex.gifUrl || "";
-            media.alt = (ex.name || "Exercise") + " demo";
-            media.loading = "lazy";
-          } else if (ex.videoUrl) {
+          if (primaryMediaUrl && primaryMediaType === "MP4") {
             media = document.createElement("video");
             media.className = "thumb";
-            media.src = ex.videoUrl || "";
+            media.src = primaryMediaUrl;
             media.poster = "";
             media.muted = true;
             media.loop = true;
@@ -1660,6 +1658,12 @@ const WORKOUT_WIDGET_HTML = String.raw`<!doctype html>
             media.playsInline = true;
             media.preload = "metadata";
             media.setAttribute("aria-label", (ex.name || "Exercise") + " demo video");
+          } else if (primaryMediaUrl) {
+            media = document.createElement("img");
+            media.className = "thumb";
+            media.src = primaryMediaUrl;
+            media.alt = (ex.name || "Exercise") + " demo";
+            media.loading = "lazy";
           } else if (ex.thumbnailLabel) {
             media = document.createElement("div");
             media.className = "thumb thumb-fallback";
@@ -1679,12 +1683,13 @@ const WORKOUT_WIDGET_HTML = String.raw`<!doctype html>
           details.textContent = (ex.reps || "") + " • " + (ex.durationMin || 0) + " min";
           const note = document.createElement("p");
           note.textContent = ex.note || "";
-          const mediaLink = ex.demoUrl || ex.videoUrl || ex.gifUrl ? document.createElement("a") : null;
+          const mediaLinkUrl = ex.demoUrl || primaryMediaUrl;
+          const mediaLink = mediaLinkUrl ? document.createElement("a") : null;
           if (mediaLink) {
-            mediaLink.href = ex.demoUrl || ex.videoUrl || ex.gifUrl || "#";
+            mediaLink.href = mediaLinkUrl || "#";
             mediaLink.target = "_blank";
             mediaLink.rel = "noopener noreferrer";
-            mediaLink.textContent = ex.demoUrl ? "Watch demo" : ex.videoUrl ? "Open video" : "Open GIF";
+            mediaLink.textContent = ex.demoUrl ? "Watch demo" : primaryMediaType === "MP4" ? "Open video" : "Open media";
           }
 
           const controls = document.createElement("div");
