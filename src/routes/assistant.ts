@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { AgentEventType, NutritionInputType } from '@prisma/client';
+import { AgentEventType, MealType, NutritionInputType } from '@prisma/client';
 
 import { steadyAiInternalRuntime } from '../agents/runtime/steadyai-internal.runtime';
 import type { AgentCapabilityId } from '../agents/runtime/types';
@@ -298,31 +298,31 @@ function buildWorkoutPlan(prompt: string): AssistantWorkoutPlan {
     {
       name: lowImpact ? 'March in Place' : 'Jumping Jacks',
       durationMin: easier ? 3 : 4,
-      reps: easier ? 'steady pace' : '60 reps',
+      reps: easier ? 'Move at a steady pace' : 'Complete 60 total reps',
       note: 'Warm up at a controlled pace and keep breathing steady.'
     },
     {
       name: lowImpact ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
       durationMin: 4,
-      reps: harder ? '4 x 15' : easier ? '3 x 10' : '3 x 12',
+      reps: harder ? '4 sets of 15 reps' : easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
       note: 'Keep chest upright and push through the heels.'
     },
     {
       name: harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
       durationMin: 4,
-      reps: harder ? '4 x 10' : easier ? '3 x 6' : '3 x 8',
+      reps: harder ? '4 sets of 10 reps' : easier ? '3 sets of 6 reps' : '3 sets of 8 reps',
       note: 'Use wall or incline push-ups if floor push-ups are too much.'
     },
     {
       name: lowImpact ? 'Glute Bridge' : 'Reverse Lunge',
       durationMin: 4,
-      reps: harder ? '3 x 14/side' : easier ? '3 x 8/side' : '3 x 10/side',
+      reps: harder ? '3 sets of 14 reps per side' : easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
       note: lowImpact ? 'Drive through heels and squeeze glutes at the top.' : 'Keep the front knee stable over mid-foot.'
     },
     {
       name: 'Forearm Plank',
       durationMin: easier ? 3 : 4,
-      reps: harder ? '4 x 45 sec' : easier ? '3 x 20 sec' : '3 x 30 sec',
+      reps: harder ? '4 sets of 45 seconds' : easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
       note: 'Brace the core and keep hips level.'
     }
   ];
@@ -331,7 +331,7 @@ function buildWorkoutPlan(prompt: string): AssistantWorkoutPlan {
     base.push({
       name: 'Mountain Climbers',
       durationMin: 3,
-      reps: '3 rounds x 30 sec',
+      reps: '3 rounds of 30 seconds',
       note: 'Optional finisher for extra conditioning.'
     });
   }
@@ -356,13 +356,13 @@ function buildWorkoutPlan(prompt: string): AssistantWorkoutPlan {
 
 function formatWorkoutReply(plan: AssistantWorkoutPlan): string {
   const exercises = plan.exercises
-    .map((exercise, index) => `${index + 1}. ${exercise.name} - ${exercise.durationMin} min, ${exercise.reps}. ${exercise.note}`)
+    .map((exercise, index) => `${index + 1}. ${exercise.name} - ${exercise.durationMin} minutes. Do ${exercise.reps}. ${exercise.note}`)
     .join('\n');
 
   return `${plan.title}: ${plan.focus}. Estimated time: ${plan.estimatedTotalMin} minutes.\n\n${exercises}\n\nMove at a conversational pace, stop if pain appears, and choose the easier variation when form breaks.`;
 }
 
-function buildMealPlan(prompt: string): AssistantMealPlan {
+function buildFallbackMealPlan(prompt: string): AssistantMealPlan {
   const normalized = prompt.toLowerCase();
   const wantsLowCalorie = /\b(low[-\s]?calorie|light|lean|calorie deficit|weight loss)\b/.test(normalized);
   const wantsChicken = /\bchicken\b/.test(normalized);
@@ -441,6 +441,92 @@ function buildMealPlan(prompt: string): AssistantMealPlan {
     goal: `Create a practical ${mealName} with ${protein}, enough protein to feel satisfied, and simple ingredients.`,
     options
   };
+}
+
+function mealTypeFromPrompt(prompt: string): MealType | null {
+  const normalized = prompt.toLowerCase();
+  if (/\bbreakfast\b/.test(normalized)) return MealType.BREAKFAST;
+  if (/\blunch\b/.test(normalized)) return MealType.LUNCH;
+  if (/\bdinner\b/.test(normalized)) return MealType.DINNER;
+  if (/\bsnack\b/.test(normalized)) return MealType.SNACK;
+  return null;
+}
+
+function mealLabel(mealType: MealType | null): string {
+  if (!mealType) return 'meal';
+  return mealType.toLowerCase();
+}
+
+function jsonStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+async function buildMealPlan(prompt: string): Promise<AssistantMealPlan> {
+  const fallback = buildFallbackMealPlan(prompt);
+  const normalized = prompt.toLowerCase();
+  const mealType = mealTypeFromPrompt(prompt);
+  const prisma = getPrismaClient();
+
+  try {
+    const templates = await prisma.mealTemplate.findMany({
+      where: {
+        isActive: true,
+        ...(mealType ? { mealType } : {})
+      },
+      orderBy: [{ calories: 'asc' }, { proteinG: 'desc' }]
+    });
+
+    const ranked = templates
+      .map((template) => {
+        const haystack = [
+          template.name,
+          template.description ?? '',
+          template.mealType,
+          ...template.goalTags,
+          ...template.dietTags,
+          ...template.cuisineTags,
+          ...jsonStringArray(template.ingredients)
+        ].join(' ').toLowerCase();
+
+        let score = 0;
+        if (mealType && template.mealType === mealType) score += 4;
+        if (/\b(low[-\s]?calorie|light|lean|weight loss|calorie deficit)\b/.test(normalized) && template.goalTags.includes('low-calorie')) score += 4;
+        if (/\b(high[-\s]?protein|protein)\b/.test(normalized) && template.goalTags.includes('high-protein')) score += 3;
+        if (/\b(chicken)\b/.test(normalized) && haystack.includes('chicken')) score += 5;
+        if (/\b(vegetarian|veggie)\b/.test(normalized) && template.dietTags.includes('vegetarian')) score += 5;
+        if (/\b(vegan)\b/.test(normalized) && template.dietTags.includes('vegan')) score += 5;
+        if (/\b(gluten[-\s]?free)\b/.test(normalized) && template.dietTags.includes('gluten-free')) score += 4;
+        if (/\b(quick|fast|easy)\b/.test(normalized) && template.prepTimeMin <= 15) score += 3;
+
+        return { template, score };
+      })
+      .sort((a, b) => b.score - a.score || b.template.calories - a.template.calories);
+
+    const selected = ranked.slice(0, 3).map(({ template }) => ({
+      name: template.name,
+      imageUrl: template.imageUrl ?? fallback.options[0]?.imageUrl ?? '',
+      calories: template.calories,
+      proteinG: Number(template.proteinG ?? 0),
+      prepTimeMin: template.prepTimeMin,
+      tags: [...template.goalTags, ...template.dietTags].slice(0, 4),
+      ingredients: jsonStringArray(template.ingredients),
+      steps: jsonStringArray(template.steps),
+      note: template.description ?? 'Nutrition values are estimates and may vary by ingredient brand and portion size.'
+    }));
+
+    if (selected.length === 0) {
+      return fallback;
+    }
+
+    return {
+      planId: `meal-${Math.random().toString(36).slice(2, 10)}`,
+      title: `${mealType ? `${mealLabel(mealType)} ` : ''}ideas from your meal catalog`.replace(/^./, (char) => char.toUpperCase()),
+      goal: `Picked from ${selected.length} curated meal template${selected.length === 1 ? '' : 's'} based on your request.`,
+      options: selected
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 function formatMealReply(plan: AssistantMealPlan): string {
@@ -710,7 +796,7 @@ export async function assistantRoutes(fastify: FastifyInstance): Promise<void> {
               intent,
               agentType: route.agentType
             });
-            return buildMealPlan(message);
+            return await buildMealPlan(message);
           }
         });
 

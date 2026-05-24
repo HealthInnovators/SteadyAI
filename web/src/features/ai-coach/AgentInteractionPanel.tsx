@@ -746,10 +746,14 @@ function WorkoutPlanCard({
   logState?: { status: 'saving' | 'saved' | 'error'; message: string };
   onLogWorkout: (plan: WorkoutPlan, feedback: WorkoutFeedback) => void;
 }) {
+  const [selectedFeedback, setSelectedFeedback] = useState<WorkoutFeedback>('JUST_RIGHT');
+  const isSaving = logState?.status === 'saving';
+  const isSaved = logState?.status === 'saved';
+
   return (
     <section className="mt-4 overflow-hidden rounded-[26px] border border-[#d8c4b3] bg-[#fff7ed] shadow-[0_18px_44px_rgba(80,48,24,0.12)]">
       <div className="bg-[linear-gradient(135deg,_#1d140d,_#70421f)] p-4 text-white">
-        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#f5c99e]">Workout card</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#f5c99e]">Workout plan</p>
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 className="text-xl font-semibold tracking-[-0.03em]">{plan.title}</h3>
@@ -768,9 +772,16 @@ function WorkoutPlanCard({
         ))}
       </div>
 
-      <div className="border-t border-[#ead9ca] bg-white/70 p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8a4b22]">Log this session</p>
-        <div className="mt-3 flex flex-wrap gap-2">
+      <div className="border-t border-[#ead9ca] bg-white/80 p-4">
+        <div className="rounded-[24px] border border-[#ead9ca] bg-[#fffaf5] p-4">
+          <p className="text-base font-bold tracking-[-0.02em] text-[#1d140d]">Finished this workout?</p>
+          <p className="mt-1 text-sm leading-6 text-[#5f5145]">
+            After you complete the session, choose how it felt and save it to your workout history.
+          </p>
+        </div>
+
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-[#8a4b22]">How did it feel?</p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
           {[
             { feedback: 'TOO_EASY' as const, label: 'Too easy' },
             { feedback: 'JUST_RIGHT' as const, label: 'Just right' },
@@ -779,14 +790,28 @@ function WorkoutPlanCard({
             <button
               key={option.feedback}
               type="button"
-              disabled={logState?.status === 'saving'}
-              onClick={() => onLogWorkout(plan, option.feedback)}
-              className="rounded-full border border-[#dccbbb] bg-[#fffaf5] px-3 py-2 text-xs font-semibold text-[#4e4035] hover:bg-[#f3e7da] disabled:opacity-60"
+              disabled={isSaving}
+              onClick={() => setSelectedFeedback(option.feedback)}
+              className={`min-h-12 rounded-2xl border px-3 py-2 text-xs font-semibold transition ${
+                selectedFeedback === option.feedback
+                  ? 'border-[#1d140d] bg-[#1d140d] text-white'
+                  : 'border-[#dccbbb] bg-white text-[#4e4035] hover:bg-[#f3e7da]'
+              } disabled:opacity-60`}
             >
-              {logState?.status === 'saving' ? 'Saving...' : option.label}
+              {option.label}
             </button>
           ))}
         </div>
+
+        <button
+          type="button"
+          disabled={isSaving || isSaved}
+          onClick={() => onLogWorkout(plan, selectedFeedback)}
+          className="mt-4 min-h-13 w-full rounded-full bg-[#1d140d] px-5 py-3 text-sm font-bold text-white shadow-[0_12px_28px_rgba(29,20,13,0.18)] transition active:scale-[0.99] disabled:bg-[#ab9a8c]"
+        >
+          {isSaving ? 'Saving workout...' : isSaved ? 'Workout saved' : 'Mark workout complete'}
+        </button>
+
         {logState ? (
           <p className={`mt-3 text-xs ${logState.status === 'error' ? 'text-red-700' : 'text-[#5f5145]'}`}>
             {logState.message}
@@ -808,6 +833,7 @@ function ExerciseCard({
   const mediaType = exercise.mediaType || (exercise.videoUrl && !exercise.gifUrl ? 'MP4' : exercise.gifUrl ? 'GIF' : 'NONE');
   const demoUrl = exercise.demoUrl || mediaUrl;
   const mediaLabel = exercise.thumbnailLabel || exercise.name;
+  const prescription = formatExercisePrescription(exercise.reps);
 
   return (
     <article className="overflow-hidden rounded-[22px] border border-[#ead9ca] bg-white shadow-[0_10px_24px_rgba(80,48,24,0.08)]">
@@ -847,7 +873,7 @@ function ExerciseCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h4 className="font-semibold leading-5 text-[#1d140d]">{exercise.name}</h4>
-            <p className="mt-1 text-xs text-[#7a6555]">{exercise.reps}</p>
+            <p className="mt-1 text-xs leading-5 text-[#7a6555]">Do {prescription}</p>
           </div>
           <span className="shrink-0 rounded-full bg-[#f3e7da] px-2.5 py-1 text-xs font-semibold text-[#70421f]">
             {exercise.durationMin} min
@@ -867,6 +893,36 @@ function ExerciseCard({
       </div>
     </article>
   );
+}
+
+function formatExercisePrescription(reps: string): string {
+  const value = reps.trim();
+  const setsAndReps = value.match(/^(\d+)\s*x\s*(\d+)(?:\s*reps?)?$/i);
+  if (setsAndReps) {
+    return `${setsAndReps[1]} sets of ${setsAndReps[2]} reps`;
+  }
+
+  const setsAndSeconds = value.match(/^(\d+)\s*x\s*(\d+)\s*sec(?:onds?)?$/i);
+  if (setsAndSeconds) {
+    return `${setsAndSeconds[1]} sets of ${setsAndSeconds[2]} seconds`;
+  }
+
+  const perSide = value.match(/^(\d+)\s*x\s*(\d+)\s*\/\s*side$/i);
+  if (perSide) {
+    return `${perSide[1]} sets of ${perSide[2]} reps per side`;
+  }
+
+  const rounds = value.match(/^(\d+)\s*rounds?\s*x\s*(\d+)\s*sec(?:onds?)?$/i);
+  if (rounds) {
+    return `${rounds[1]} rounds of ${rounds[2]} seconds`;
+  }
+
+  const totalReps = value.match(/^(\d+)\s*reps?$/i);
+  if (totalReps) {
+    return `${totalReps[1]} total reps`;
+  }
+
+  return value;
 }
 
 function welcomeMessage(): ChatMessage {

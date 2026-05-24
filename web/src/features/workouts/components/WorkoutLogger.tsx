@@ -23,6 +23,22 @@ export function WorkoutLogger({ onLogged }: { onLogged?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  function applyCompletionPreset(preset: 'FULL' | 'MOST' | 'PARTIAL') {
+    const total = Math.max(1, Number(totalExercises) || 1);
+
+    if (preset === 'FULL') {
+      setCompletedExercises(String(total));
+      return;
+    }
+
+    if (preset === 'MOST') {
+      setCompletedExercises(String(Math.max(1, Math.ceil(total * 0.75))));
+      return;
+    }
+
+    setCompletedExercises(String(Math.max(1, Math.ceil(total * 0.5))));
+  }
+
   async function submitWorkoutLog() {
     const parsedDuration = Number(duration);
     const parsedCompleted = Number(completedExercises);
@@ -75,17 +91,42 @@ export function WorkoutLogger({ onLogged }: { onLogged?: () => void }) {
   return (
     <section className="rounded-[34px] border border-white/80 bg-[linear-gradient(135deg,_#1d140d,_#7a4b28)] p-5 text-white shadow-[0_22px_70px_rgba(80,48,24,0.18)] dark:from-[#0f0b08] dark:to-[#4a372b] sm:p-6">
       <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#f1d6b7]">Workout log</p>
-      <h3 className="mt-2 text-2xl font-bold tracking-[-0.04em]">Save a completed session</h3>
-      <p className="mt-2 text-sm leading-6 text-[#fff4e7]">Capture the basics so reports and the coach can adjust your next plan.</p>
+      <h3 className="mt-2 text-2xl font-bold tracking-[-0.04em]">Log a workout you finished</h3>
+      <p className="mt-2 text-sm leading-6 text-[#fff4e7]">
+        Save what actually happened. SteadyAI uses this to update reports and make the next workout more realistic.
+      </p>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <NumberField label="Minutes" value={duration} onChange={setDuration} />
-        <NumberField label="Completed" value={completedExercises} onChange={setCompletedExercises} />
-        <NumberField label="Total" value={totalExercises} onChange={setTotalExercises} />
+      <div className="mt-5 rounded-[26px] border border-white/15 bg-white/10 p-4">
+        <p className="text-sm font-bold text-white">1. How much of the workout did you complete?</p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[
+            { value: 'FULL' as const, label: 'All of it' },
+            { value: 'MOST' as const, label: 'Most' },
+            { value: 'PARTIAL' as const, label: 'Some' }
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => applyCompletionPreset(option.value)}
+              className="min-h-12 rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white transition active:scale-[0.98]"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="mt-4">
-        <p className="text-sm font-semibold text-[#fff4e7]">How did it feel?</p>
+        <p className="mb-3 text-sm font-bold text-white">2. Confirm the numbers</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <NumberField label="Minutes moved" value={duration} onChange={setDuration} />
+          <NumberField label="Exercises done" value={completedExercises} onChange={setCompletedExercises} />
+          <NumberField label="Planned exercises" value={totalExercises} onChange={setTotalExercises} />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <p className="text-sm font-bold text-white">3. How did it feel?</p>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {feedbackOptions.map((option) => (
             <button
@@ -108,7 +149,7 @@ export function WorkoutLogger({ onLogged }: { onLogged?: () => void }) {
         disabled={isSaving}
         className="mt-4 min-h-14 w-full rounded-full bg-[#fffaf5] px-5 py-4 text-base font-bold text-[#1d140d] shadow-[0_12px_28px_rgba(29,20,13,0.18)] transition active:scale-[0.99] disabled:bg-[#ab9a8c]"
       >
-        {isSaving ? 'Saving workout...' : 'Save workout'}
+        {isSaving ? 'Saving workout...' : 'Save completed workout'}
       </button>
 
       {message ? <p className="mt-3 text-sm font-semibold text-emerald-100">{message}</p> : null}
@@ -124,6 +165,7 @@ function NumberField({ label, value, onChange }: { label: string; value: string;
       <input
         type="number"
         min="0"
+        inputMode="numeric"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="min-h-14 w-full rounded-[22px] border border-white/20 bg-white/95 px-4 py-3 text-base font-bold text-[#1d140d] outline-none ring-white/20 transition focus:border-white focus:ring-4"

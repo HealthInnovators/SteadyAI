@@ -1204,6 +1204,21 @@ const WORKOUT_WIDGET_HTML = String.raw`<!doctype html>
         return date.toLocaleString();
       }
 
+      function formatExercisePrescription(value) {
+        const text = String(value || "").trim();
+        let match = text.match(/^(\\d+)\\s*x\\s*(\\d+)(?:\\s*reps?)?$/i);
+        if (match) return match[1] + " sets of " + match[2] + " reps";
+        match = text.match(/^(\\d+)\\s*x\\s*(\\d+)\\s*sec(?:onds?)?$/i);
+        if (match) return match[1] + " sets of " + match[2] + " seconds";
+        match = text.match(/^(\\d+)\\s*x\\s*(\\d+)\\s*\\/\\s*side$/i);
+        if (match) return match[1] + " sets of " + match[2] + " reps per side";
+        match = text.match(/^(\\d+)\\s*rounds?\\s*x\\s*(\\d+)\\s*sec(?:onds?)?$/i);
+        if (match) return match[1] + " rounds of " + match[2] + " seconds";
+        match = text.match(/^(\\d+)\\s*reps?$/i);
+        if (match) return match[1] + " total reps";
+        return text || "at a comfortable pace";
+      }
+
       function userIdFromOutput() {
         const output = openaiHost?.toolOutput || {};
         return typeof output?.userId === "string" ? output.userId : null;
@@ -1680,7 +1695,7 @@ const WORKOUT_WIDGET_HTML = String.raw`<!doctype html>
           const name = document.createElement("h4");
           name.textContent = (index + 1) + ". " + (ex.name || "Exercise");
           const details = document.createElement("p");
-          details.textContent = (ex.reps || "") + " • " + (ex.durationMin || 0) + " min";
+          details.textContent = "Do " + formatExercisePrescription(ex.reps || "") + " • " + (ex.durationMin || 0) + " min";
           const note = document.createElement("p");
           note.textContent = ex.note || "";
           const mediaLinkUrl = ex.demoUrl || primaryMediaUrl;
@@ -2095,31 +2110,31 @@ function buildWorkoutPlan(prompt: string, currentPlan?: WorkoutPlan, adjustment:
     {
       name: kneeFriendly ? 'March in Place' : 'Jumping Jacks',
       durationMin: easier ? 3 : 4,
-      reps: easier ? 'steady pace' : '60 reps',
+      reps: easier ? 'Move at a steady pace' : 'Complete 60 total reps',
       note: 'Warm-up to raise heart rate and prep joints.'
     },
     {
       name: kneeFriendly ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
       durationMin: 4,
-      reps: harder ? '4 x 15' : easier ? '3 x 10' : '3 x 12',
+      reps: harder ? '4 sets of 15 reps' : easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
       note: 'Keep chest upright and push through heels.'
     },
     {
       name: harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
       durationMin: 4,
-      reps: harder ? '4 x 10' : easier ? '3 x 6' : '3 x 8',
+      reps: harder ? '4 sets of 10 reps' : easier ? '3 sets of 6 reps' : '3 sets of 8 reps',
       note: 'Use incline push-ups if needed.'
     },
     {
       name: kneeFriendly ? 'Glute Bridge' : 'Reverse Lunge',
       durationMin: 4,
-      reps: harder ? '3 x 14/side' : easier ? '3 x 8/side' : '3 x 10/side',
+      reps: harder ? '3 sets of 14 reps per side' : easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
       note: kneeFriendly ? 'Drive through heels and squeeze glutes.' : 'Keep front knee stable over mid-foot.'
     },
     {
       name: 'Forearm Plank',
       durationMin: easier ? 3 : 4,
-      reps: harder ? '4 x 45 sec' : easier ? '3 x 20 sec' : '3 x 30 sec',
+      reps: harder ? '4 sets of 45 seconds' : easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
       note: 'Brace core and keep hips level.'
     }
   ];
@@ -2128,7 +2143,7 @@ function buildWorkoutPlan(prompt: string, currentPlan?: WorkoutPlan, adjustment:
     base.push({
       name: 'Finisher: Mountain Climbers',
       durationMin: 3,
-      reps: '3 rounds x 30 sec',
+      reps: '3 rounds of 30 seconds',
       note: 'Optional finisher for extra conditioning.'
     });
   }

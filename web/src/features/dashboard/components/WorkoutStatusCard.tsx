@@ -23,9 +23,9 @@ interface WorkoutPlan {
 const DEFAULT_WORKOUT_PLAN: WorkoutPlan = {
   title: 'Momentum builder: strength, posture, and core',
   exercises: [
-    { id: 'ex-1', name: 'Goblet squat or bodyweight squat', durationMin: 8, reps: '3 x 12', impact: 'MEDIUM' },
-    { id: 'ex-2', name: 'Push-up progression', durationMin: 7, reps: '3 x 10', impact: 'MEDIUM' },
-    { id: 'ex-3', name: 'Split squat hold', durationMin: 6, reps: '2 x 30 sec / side', impact: 'MEDIUM' },
+    { id: 'ex-1', name: 'Goblet squat or bodyweight squat', durationMin: 8, reps: '3 sets of 12 reps', impact: 'MEDIUM' },
+    { id: 'ex-2', name: 'Push-up progression', durationMin: 7, reps: '3 sets of 10 reps', impact: 'MEDIUM' },
+    { id: 'ex-3', name: 'Split squat hold', durationMin: 6, reps: '2 sets of 30 seconds per side', impact: 'MEDIUM' },
     { id: 'ex-4', name: 'Dead bug and plank finisher', durationMin: 9, reps: '3 rounds', impact: 'LOW' }
   ]
 };
