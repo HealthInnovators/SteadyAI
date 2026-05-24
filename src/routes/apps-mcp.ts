@@ -2099,47 +2099,156 @@ function randomId(prefix: string): string {
 }
 
 type WorkoutAdjustment = 'easier' | 'harder' | 'neutral';
+type WorkoutFocusArea = 'LOWER_BODY' | 'UPPER_BODY' | 'CORE' | 'FULL_BODY';
+type WorkoutEquipmentContext = 'GYM' | 'NO_EQUIPMENT' | 'GENERAL';
+
+function detectWorkoutFocusArea(prompt: string): WorkoutFocusArea {
+  const normalized = prompt.toLowerCase();
+  if (/\b(lower[-\s]?body|leg day|legs|glutes|quads?|hamstrings?|calves)\b/.test(normalized)) {
+    return 'LOWER_BODY';
+  }
+  if (/\b(upper[-\s]?body|chest|back|shoulders?|arms?|biceps?|triceps?)\b/.test(normalized)) {
+    return 'UPPER_BODY';
+  }
+  if (/\b(core|abs?|abdominals?)\b/.test(normalized)) {
+    return 'CORE';
+  }
+  return 'FULL_BODY';
+}
+
+function detectWorkoutEquipmentContext(prompt: string): WorkoutEquipmentContext {
+  const normalized = prompt.toLowerCase();
+  if (/\b(no equipment|bodyweight|without equipment|at home|home workout)\b/.test(normalized)) {
+    return 'NO_EQUIPMENT';
+  }
+  if (/\b(gym|machine|barbell|dumbbell|cable|bench|leg press|smith)\b/.test(normalized)) {
+    return 'GYM';
+  }
+  return 'GENERAL';
+}
+
+function lowerBodyExercises(input: {
+  kneeFriendly: boolean;
+  easier: boolean;
+  harder: boolean;
+  equipment: WorkoutEquipmentContext;
+}): WorkoutExercise[] {
+  if (input.equipment === 'GYM') {
+    return [
+      {
+        name: input.kneeFriendly ? 'Treadmill Walk' : 'Incline Treadmill Walk',
+        durationMin: input.easier ? 4 : 5,
+        reps: input.easier ? 'Walk at an easy warm-up pace' : 'Walk at a moderate warm-up pace',
+        note: 'Warm up hips, knees, and ankles before loading the legs.'
+      },
+      {
+        name: 'Leg Press',
+        durationMin: 5,
+        reps: input.harder ? '4 sets of 10 reps' : input.easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
+        note: 'Control the lowering phase and keep knees tracking over toes.'
+      },
+      {
+        name: input.easier ? 'Seated Leg Curl' : 'Romanian Deadlift',
+        durationMin: 5,
+        reps: input.harder ? '4 sets of 8 reps' : input.easier ? '3 sets of 12 reps' : '3 sets of 10 reps',
+        note: input.easier ? 'Keep hips down and squeeze hamstrings smoothly.' : 'Hinge at the hips and keep the spine neutral.'
+      },
+      {
+        name: input.easier ? 'Hip Abduction Machine' : 'Hip Thrust',
+        durationMin: 4,
+        reps: input.harder ? '4 sets of 10 reps' : input.easier ? '3 sets of 12 reps' : '3 sets of 10 reps',
+        note: 'Use a controlled range of motion and pause briefly at the strongest point.'
+      },
+      {
+        name: 'Standing Calf Raise',
+        durationMin: 3,
+        reps: input.harder ? '4 sets of 15 reps' : '3 sets of 12 reps',
+        note: 'Pause at the top and lower slowly.'
+      }
+    ];
+  }
+
+  return [
+    {
+      name: 'March in Place',
+      durationMin: input.easier ? 3 : 4,
+      reps: 'Move at a steady warm-up pace',
+      note: 'Warm up hips, knees, and ankles before lower-body work.'
+    },
+    {
+      name: input.kneeFriendly ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
+      durationMin: 4,
+      reps: input.harder ? '4 sets of 15 reps' : input.easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
+      note: 'Keep chest upright and push through heels.'
+    },
+    {
+      name: input.kneeFriendly ? 'Glute Bridge' : 'Reverse Lunge',
+      durationMin: 4,
+      reps: input.harder ? '3 sets of 14 reps per side' : input.easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
+      note: input.kneeFriendly ? 'Drive through heels and squeeze glutes.' : 'Keep front knee stable over mid-foot.'
+    },
+    {
+      name: 'Hip Thrust',
+      durationMin: 4,
+      reps: input.harder ? '4 sets of 10 reps' : '3 sets of 10 reps',
+      note: 'Use a bench if available, or perform it from the floor as a glute bridge.'
+    },
+    {
+      name: 'Standing Calf Raise',
+      durationMin: 3,
+      reps: '3 sets of 12 reps',
+      note: 'Use a wall or chair for balance if needed.'
+    }
+  ];
+}
 
 function buildWorkoutPlan(prompt: string, currentPlan?: WorkoutPlan, adjustment: WorkoutAdjustment = 'neutral'): WorkoutPlan {
   const normalized = prompt.toLowerCase();
   const kneeFriendly = /knee|no-impact|low impact/.test(normalized);
   const harder = /harder|advanced|intense/.test(normalized) || adjustment === 'harder';
   const easier = /easy|easier|beginner|recover/.test(normalized) || kneeFriendly || adjustment === 'easier';
+  const focusArea = detectWorkoutFocusArea(prompt);
+  const equipment = detectWorkoutEquipmentContext(prompt);
 
-  const base: WorkoutExercise[] = [
-    {
-      name: kneeFriendly ? 'March in Place' : 'Jumping Jacks',
-      durationMin: easier ? 3 : 4,
-      reps: easier ? 'Move at a steady pace' : 'Complete 60 total reps',
-      note: 'Warm-up to raise heart rate and prep joints.'
-    },
-    {
-      name: kneeFriendly ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
-      durationMin: 4,
-      reps: harder ? '4 sets of 15 reps' : easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
-      note: 'Keep chest upright and push through heels.'
-    },
-    {
-      name: harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
-      durationMin: 4,
-      reps: harder ? '4 sets of 10 reps' : easier ? '3 sets of 6 reps' : '3 sets of 8 reps',
-      note: 'Use incline push-ups if needed.'
-    },
-    {
-      name: kneeFriendly ? 'Glute Bridge' : 'Reverse Lunge',
-      durationMin: 4,
-      reps: harder ? '3 sets of 14 reps per side' : easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
-      note: kneeFriendly ? 'Drive through heels and squeeze glutes.' : 'Keep front knee stable over mid-foot.'
-    },
-    {
-      name: 'Forearm Plank',
-      durationMin: easier ? 3 : 4,
-      reps: harder ? '4 sets of 45 seconds' : easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
-      note: 'Brace core and keep hips level.'
-    }
-  ];
+  let base: WorkoutExercise[];
+  if (focusArea === 'LOWER_BODY') {
+    base = lowerBodyExercises({ kneeFriendly, easier, harder, equipment });
+  } else {
+    base = [
+      {
+        name: kneeFriendly ? 'March in Place' : equipment === 'GYM' ? 'Treadmill Walk' : 'Jumping Jacks',
+        durationMin: easier ? 3 : 4,
+        reps: easier ? 'Move at a steady pace' : 'Complete 60 total reps',
+        note: 'Warm-up to raise heart rate and prep joints.'
+      },
+      {
+        name: equipment === 'GYM' ? 'Leg Press' : kneeFriendly ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
+        durationMin: 4,
+        reps: harder ? '4 sets of 15 reps' : easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
+        note: 'Keep chest upright and push through heels.'
+      },
+      {
+        name: equipment === 'GYM' ? 'Dumbbell Bench Press' : harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
+        durationMin: 4,
+        reps: harder ? '4 sets of 10 reps' : easier ? '3 sets of 6 reps' : '3 sets of 8 reps',
+        note: 'Use a controlled range of motion and stop short of pain.'
+      },
+      {
+        name: equipment === 'GYM' ? 'Seated Cable Row' : kneeFriendly ? 'Glute Bridge' : 'Reverse Lunge',
+        durationMin: 4,
+        reps: harder ? '3 sets of 14 reps per side' : easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
+        note: kneeFriendly ? 'Drive through heels and squeeze glutes.' : 'Keep each rep controlled.'
+      },
+      {
+        name: 'Forearm Plank',
+        durationMin: easier ? 3 : 4,
+        reps: harder ? '4 sets of 45 seconds' : easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
+        note: 'Brace core and keep hips level.'
+      }
+    ];
+  }
 
-  if (harder) {
+  if (harder && focusArea === 'FULL_BODY') {
     base.push({
       name: 'Finisher: Mountain Climbers',
       durationMin: 3,
@@ -2149,11 +2258,27 @@ function buildWorkoutPlan(prompt: string, currentPlan?: WorkoutPlan, adjustment:
   }
 
   const estimatedTotalMin = base.reduce((sum, item) => sum + item.durationMin, 0);
-  const focus = harder ? 'Strength + conditioning' : easier ? 'Low-impact consistency' : 'Full-body consistency';
+  const focus =
+    focusArea === 'LOWER_BODY'
+      ? equipment === 'GYM'
+        ? 'Lower-body gym strength'
+        : 'Lower-body strength'
+      : harder
+        ? 'Strength + conditioning'
+        : easier
+          ? 'Low-impact consistency'
+          : equipment === 'GYM'
+            ? 'Full-body gym strength'
+            : 'Full-body consistency';
 
   return {
     planId: randomId(currentPlan?.planId ? 'updated-plan' : 'plan'),
-    title: "Today's Personalized Workout",
+    title:
+      focusArea === 'LOWER_BODY'
+        ? equipment === 'GYM'
+          ? "Today's Lower-Body Gym Workout"
+          : "Today's Lower-Body Workout"
+        : "Today's Personalized Workout",
     focus,
     estimatedTotalMin,
     exercises: base
@@ -2164,13 +2289,13 @@ function applyWorkoutPreferences(plan: WorkoutPlan, preferences: {
   preferredDurationMinutes?: number | null;
   preferredImpact?: 'LOW' | 'MEDIUM' | 'HIGH' | null;
   equipment?: 'NONE' | 'HOME' | 'GYM' | null;
-} | null): WorkoutPlan {
+} | null, explicitEquipment: WorkoutEquipmentContext = 'GENERAL'): WorkoutPlan {
   if (!preferences) {
     return plan;
   }
   const desired = typeof preferences.preferredDurationMinutes === 'number' ? preferences.preferredDurationMinutes : null;
   const impact = preferences.preferredImpact ?? null;
-  const equipment = preferences.equipment ?? null;
+  const equipment = explicitEquipment === 'GENERAL' ? preferences.equipment ?? null : null;
 
   const clone: WorkoutPlan = {
     ...plan,
@@ -3075,10 +3200,10 @@ async function handleToolCall(
     const currentPlan =
       args.currentPlan && typeof args.currentPlan === 'object' ? (args.currentPlan as WorkoutPlan) : undefined;
     const basePlan = buildWorkoutPlan(prompt, currentPlan, autoAdjustment);
-    const preferredPlan = applyWorkoutPreferences(basePlan, preferences);
+    const preferredPlan = applyWorkoutPreferences(basePlan, preferences, detectWorkoutEquipmentContext(prompt));
     const plan = {
       ...preferredPlan,
-      exercises: await attachExerciseMedia(preferredPlan.exercises)
+      exercises: await attachExerciseMedia(preferredPlan.exercises).catch(() => preferredPlan.exercises)
     };
 
     return {

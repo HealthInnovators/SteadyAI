@@ -289,45 +289,290 @@ function scaleWorkoutDuration(plan: AssistantWorkoutPlan, targetMinutes: number 
   };
 }
 
-function buildWorkoutPlan(prompt: string): AssistantWorkoutPlan {
-  const normalized = prompt.toLowerCase();
-  const lowImpact = /\b(low[-\s]?impact|no[-\s]?impact|joint[-\s]?friendly|knee)\b/.test(normalized);
-  const noEquipment = /\b(no equipment|bodyweight|without equipment)\b/.test(normalized);
-  const harder = /\b(harder|advanced|intense|challenge)\b/.test(normalized);
-  const easier = /\b(easy|easier|beginner|recover|gentle)\b/.test(normalized) || lowImpact;
+type WorkoutFocusArea = 'LOWER_BODY' | 'UPPER_BODY' | 'CORE' | 'FULL_BODY';
+type WorkoutEquipmentContext = 'GYM' | 'NO_EQUIPMENT' | 'GENERAL';
 
-  const base: AssistantWorkoutExercise[] = [
+function detectWorkoutFocusArea(prompt: string): WorkoutFocusArea {
+  const normalized = prompt.toLowerCase();
+  if (/\b(lower[-\s]?body|leg day|legs|glutes|quads?|hamstrings?|calves)\b/.test(normalized)) {
+    return 'LOWER_BODY';
+  }
+  if (/\b(upper[-\s]?body|chest|back|shoulders?|arms?|biceps?|triceps?)\b/.test(normalized)) {
+    return 'UPPER_BODY';
+  }
+  if (/\b(core|abs?|abdominals?)\b/.test(normalized)) {
+    return 'CORE';
+  }
+  return 'FULL_BODY';
+}
+
+function detectWorkoutEquipmentContext(prompt: string): WorkoutEquipmentContext {
+  const normalized = prompt.toLowerCase();
+  if (/\b(no equipment|bodyweight|without equipment|at home|home workout)\b/.test(normalized)) {
+    return 'NO_EQUIPMENT';
+  }
+  if (/\b(gym|machine|barbell|dumbbell|cable|bench|leg press|smith)\b/.test(normalized)) {
+    return 'GYM';
+  }
+  return 'GENERAL';
+}
+
+function lowerBodyExercises(input: {
+  lowImpact: boolean;
+  easier: boolean;
+  harder: boolean;
+  equipment: WorkoutEquipmentContext;
+}): AssistantWorkoutExercise[] {
+  if (input.equipment === 'GYM') {
+    return [
+      {
+        name: input.lowImpact ? 'Treadmill Walk' : 'Incline Treadmill Walk',
+        durationMin: input.easier ? 4 : 5,
+        reps: input.easier ? 'Walk at an easy warm-up pace' : 'Walk at a moderate warm-up pace',
+        note: 'Warm up hips, knees, and ankles before loading the legs.'
+      },
+      {
+        name: 'Leg Press',
+        durationMin: 5,
+        reps: input.harder ? '4 sets of 10 reps' : input.easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
+        note: 'Control the lowering phase and keep knees tracking over toes.'
+      },
+      {
+        name: input.easier ? 'Seated Leg Curl' : 'Romanian Deadlift',
+        durationMin: 5,
+        reps: input.harder ? '4 sets of 8 reps' : input.easier ? '3 sets of 12 reps' : '3 sets of 10 reps',
+        note: input.easier ? 'Keep hips down and squeeze hamstrings smoothly.' : 'Hinge at the hips and keep the spine neutral.'
+      },
+      {
+        name: input.easier ? 'Hip Abduction Machine' : 'Hip Thrust',
+        durationMin: 4,
+        reps: input.harder ? '4 sets of 10 reps' : input.easier ? '3 sets of 12 reps' : '3 sets of 10 reps',
+        note: 'Use a controlled range of motion and pause briefly at the strongest point.'
+      },
+      {
+        name: 'Standing Calf Raise',
+        durationMin: 3,
+        reps: input.harder ? '4 sets of 15 reps' : '3 sets of 12 reps',
+        note: 'Pause at the top and lower slowly.'
+      }
+    ];
+  }
+
+  return [
     {
-      name: lowImpact ? 'March in Place' : 'Jumping Jacks',
-      durationMin: easier ? 3 : 4,
-      reps: easier ? 'Move at a steady pace' : 'Complete 60 total reps',
-      note: 'Warm up at a controlled pace and keep breathing steady.'
+      name: 'March in Place',
+      durationMin: input.easier ? 3 : 4,
+      reps: 'Move at a steady warm-up pace',
+      note: 'Warm up hips, knees, and ankles before the lower-body work.'
     },
     {
-      name: lowImpact ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
+      name: input.lowImpact ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
       durationMin: 4,
-      reps: harder ? '4 sets of 15 reps' : easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
+      reps: input.harder ? '4 sets of 15 reps' : input.easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
       note: 'Keep chest upright and push through the heels.'
     },
     {
-      name: harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
+      name: input.lowImpact ? 'Glute Bridge' : 'Reverse Lunge',
       durationMin: 4,
-      reps: harder ? '4 sets of 10 reps' : easier ? '3 sets of 6 reps' : '3 sets of 8 reps',
+      reps: input.harder ? '3 sets of 14 reps per side' : input.easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
+      note: input.lowImpact ? 'Drive through heels and squeeze glutes at the top.' : 'Keep the front knee stable over mid-foot.'
+    },
+    {
+      name: 'Hip Thrust',
+      durationMin: 4,
+      reps: input.harder ? '4 sets of 10 reps' : '3 sets of 10 reps',
+      note: 'Use a bench if available, or perform it from the floor as a glute bridge.'
+    },
+    {
+      name: 'Standing Calf Raise',
+      durationMin: 3,
+      reps: '3 sets of 12 reps',
+      note: 'Use a wall or chair for balance if needed.'
+    }
+  ];
+}
+
+function upperBodyExercises(input: {
+  easier: boolean;
+  harder: boolean;
+  equipment: WorkoutEquipmentContext;
+}): AssistantWorkoutExercise[] {
+  if (input.equipment === 'GYM') {
+    return [
+      {
+        name: 'Treadmill Walk',
+        durationMin: 4,
+        reps: 'Walk at an easy warm-up pace',
+        note: 'Warm up before pressing and pulling work.'
+      },
+      {
+        name: input.easier ? 'Chest Press Machine' : 'Dumbbell Bench Press',
+        durationMin: 5,
+        reps: input.harder ? '4 sets of 8 reps' : input.easier ? '3 sets of 10 reps' : '3 sets of 8 reps',
+        note: 'Keep shoulder blades controlled and stop short of pain.'
+      },
+      {
+        name: input.easier ? 'Lat Pulldown' : 'Seated Cable Row',
+        durationMin: 5,
+        reps: input.harder ? '4 sets of 10 reps' : '3 sets of 10 reps',
+        note: 'Pull with the back, not just the arms.'
+      },
+      {
+        name: input.easier ? 'Machine Shoulder Press' : 'Dumbbell Shoulder Press',
+        durationMin: 4,
+        reps: input.harder ? '4 sets of 8 reps' : '3 sets of 8 reps',
+        note: 'Keep ribs down and press through a pain-free range.'
+      },
+      {
+        name: input.harder ? 'Rope Triceps Pushdown' : 'Dumbbell Curl',
+        durationMin: 3,
+        reps: '3 sets of 12 reps',
+        note: 'Finish with controlled arm work.'
+      }
+    ];
+  }
+
+  return [
+    {
+      name: 'March in Place',
+      durationMin: 3,
+      reps: 'Move at a steady warm-up pace',
+      note: 'Warm up shoulders and upper back.'
+    },
+    {
+      name: input.harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
+      durationMin: 4,
+      reps: input.easier ? '3 sets of 6 reps' : '3 sets of 8 reps',
       note: 'Use wall or incline push-ups if floor push-ups are too much.'
     },
     {
-      name: lowImpact ? 'Glute Bridge' : 'Reverse Lunge',
+      name: 'TRX Row',
       durationMin: 4,
-      reps: harder ? '3 sets of 14 reps per side' : easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
-      note: lowImpact ? 'Drive through heels and squeeze glutes at the top.' : 'Keep the front knee stable over mid-foot.'
+      reps: '3 sets of 10 reps',
+      note: 'If no TRX is available, use a sturdy table row or skip this movement.'
+    },
+    {
+      name: 'Pallof Press',
+      durationMin: 3,
+      reps: '3 sets of 10 reps per side',
+      note: 'Use a band if available, or replace with a forearm plank.'
+    }
+  ];
+}
+
+function coreExercises(input: { easier: boolean; harder: boolean; equipment: WorkoutEquipmentContext }): AssistantWorkoutExercise[] {
+  if (input.equipment === 'GYM') {
+    return [
+      {
+        name: 'Treadmill Walk',
+        durationMin: 4,
+        reps: 'Walk at an easy warm-up pace',
+        note: 'Warm up before loaded core work.'
+      },
+      {
+        name: 'Cable Crunch',
+        durationMin: 4,
+        reps: input.harder ? '4 sets of 12 reps' : '3 sets of 12 reps',
+        note: 'Round through the trunk instead of pulling with the arms.'
+      },
+      {
+        name: input.easier ? 'Captain Chair Knee Raise' : 'Hanging Knee Raise',
+        durationMin: 4,
+        reps: input.easier ? '3 sets of 8 reps' : '3 sets of 10 reps',
+        note: 'Control the lowering phase and avoid swinging.'
+      },
+      {
+        name: 'Pallof Press',
+        durationMin: 4,
+        reps: '3 sets of 10 reps per side',
+        note: 'Resist rotation and keep ribs stacked over hips.'
+      },
+      {
+        name: 'Forearm Plank',
+        durationMin: 3,
+        reps: input.easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
+        note: 'Brace the core and keep hips level.'
+      }
+    ];
+  }
+
+  return [
+    {
+      name: 'March in Place',
+      durationMin: 3,
+      reps: 'Move at a steady warm-up pace',
+      note: 'Warm up before core work.'
     },
     {
       name: 'Forearm Plank',
-      durationMin: easier ? 3 : 4,
-      reps: harder ? '4 sets of 45 seconds' : easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
+      durationMin: 4,
+      reps: input.easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
       note: 'Brace the core and keep hips level.'
+    },
+    {
+      name: 'Mountain Climbers',
+      durationMin: input.easier ? 3 : 4,
+      reps: input.easier ? '3 rounds of 20 seconds' : '3 rounds of 30 seconds',
+      note: 'Move slowly if you want a lower-impact version.'
+    },
+    {
+      name: 'Pallof Press',
+      durationMin: 3,
+      reps: '3 sets of 10 reps per side',
+      note: 'Use a band if available, or repeat the plank.'
     }
   ];
+}
+
+function buildWorkoutPlan(prompt: string): AssistantWorkoutPlan {
+  const normalized = prompt.toLowerCase();
+  const lowImpact = /\b(low[-\s]?impact|no[-\s]?impact|joint[-\s]?friendly|knee)\b/.test(normalized);
+  const harder = /\b(harder|advanced|intense|challenge)\b/.test(normalized);
+  const easier = /\b(easy|easier|beginner|recover|gentle)\b/.test(normalized) || lowImpact;
+  const focusArea = detectWorkoutFocusArea(prompt);
+  const equipment = detectWorkoutEquipmentContext(prompt);
+
+  let base: AssistantWorkoutExercise[];
+  if (focusArea === 'LOWER_BODY') {
+    base = lowerBodyExercises({ lowImpact, easier, harder, equipment });
+  } else if (focusArea === 'UPPER_BODY') {
+    base = upperBodyExercises({ easier, harder, equipment });
+  } else if (focusArea === 'CORE') {
+    base = coreExercises({ easier, harder, equipment });
+  } else {
+    base = [
+      {
+        name: lowImpact ? 'March in Place' : equipment === 'GYM' ? 'Treadmill Walk' : 'Jumping Jacks',
+        durationMin: easier ? 3 : 4,
+        reps: easier ? 'Move at a steady pace' : 'Complete 60 total reps',
+        note: 'Warm up at a controlled pace and keep breathing steady.'
+      },
+      {
+        name: equipment === 'GYM' ? 'Leg Press' : lowImpact ? 'Bodyweight Box Squat' : 'Bodyweight Squat',
+        durationMin: 4,
+        reps: harder ? '4 sets of 15 reps' : easier ? '3 sets of 10 reps' : '3 sets of 12 reps',
+        note: 'Keep chest upright and push through the heels.'
+      },
+      {
+        name: equipment === 'GYM' ? 'Dumbbell Bench Press' : harder ? 'Push-Up + Shoulder Tap' : 'Push-Up',
+        durationMin: 4,
+        reps: harder ? '4 sets of 10 reps' : easier ? '3 sets of 6 reps' : '3 sets of 8 reps',
+        note: 'Use a controlled range of motion and stop short of pain.'
+      },
+      {
+        name: equipment === 'GYM' ? 'Seated Cable Row' : lowImpact ? 'Glute Bridge' : 'Reverse Lunge',
+        durationMin: 4,
+        reps: harder ? '3 sets of 14 reps per side' : easier ? '3 sets of 8 reps per side' : '3 sets of 10 reps per side',
+        note: lowImpact ? 'Drive through heels and squeeze glutes at the top.' : 'Keep each rep controlled.'
+      },
+      {
+        name: 'Forearm Plank',
+        durationMin: easier ? 3 : 4,
+        reps: harder ? '4 sets of 45 seconds' : easier ? '3 sets of 20 seconds' : '3 sets of 30 seconds',
+        note: 'Brace the core and keep hips level.'
+      }
+    ];
+  }
 
   if (harder && !lowImpact) {
     base.push({
@@ -338,17 +583,44 @@ function buildWorkoutPlan(prompt: string): AssistantWorkoutPlan {
     });
   }
 
-  const exercises = noEquipment
+  const exercises = equipment === 'NO_EQUIPMENT'
     ? base.map((exercise) => ({
         ...exercise,
         note: `${exercise.note} No equipment required.`
       }))
     : base;
+  const focusLabel =
+    focusArea === 'LOWER_BODY'
+      ? equipment === 'GYM'
+        ? 'Lower-body gym strength'
+        : 'Lower-body strength'
+      : focusArea === 'UPPER_BODY'
+        ? equipment === 'GYM'
+          ? 'Upper-body gym strength'
+          : 'Upper-body strength'
+        : focusArea === 'CORE'
+          ? equipment === 'GYM'
+            ? 'Core gym strength'
+            : 'Core stability'
+          : lowImpact
+            ? 'Low-impact full-body consistency'
+            : harder
+              ? 'Strength and conditioning'
+              : equipment === 'GYM'
+                ? 'Full-body gym strength'
+                : 'Full-body consistency';
 
   const plan: AssistantWorkoutPlan = {
     planId: randomPlanId(),
-    title: "Today's Workout Plan",
-    focus: lowImpact ? 'Low-impact full-body consistency' : harder ? 'Strength and conditioning' : 'Full-body consistency',
+    title:
+      focusArea === 'LOWER_BODY'
+        ? "Today's Lower-Body Workout Plan"
+        : focusArea === 'UPPER_BODY'
+          ? "Today's Upper-Body Workout Plan"
+          : focusArea === 'CORE'
+            ? "Today's Core Workout Plan"
+            : "Today's Workout Plan",
+    focus: focusLabel,
     estimatedTotalMin: exercises.reduce((sum, exercise) => sum + exercise.durationMin, 0),
     exercises
   };
