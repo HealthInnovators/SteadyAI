@@ -76,6 +76,8 @@ interface AssistantMealOption {
   ingredients: string[];
   steps: string[];
   note: string;
+  youtubeSearchQuery?: string;
+  videoUrls?: string[];
 }
 
 interface AssistantMealPlan {
@@ -389,7 +391,9 @@ function buildFallbackMealPlan(prompt: string): AssistantMealPlan {
         'Build the greens and vegetables in a bowl.',
         'Slice protein on top and finish with lemon vinaigrette.'
       ],
-      note: 'Use extra vegetables for volume without adding many calories.'
+      note: 'Use extra vegetables for volume without adding many calories.',
+      youtubeSearchQuery: 'lemon herb chicken salad bowl healthy recipe',
+      videoUrls: []
     },
     {
       name: wantsChicken ? 'Chicken Lettuce Wrap Plate' : 'Protein Lettuce Wrap Plate',
@@ -410,7 +414,9 @@ function buildFallbackMealPlan(prompt: string): AssistantMealPlan {
         'Fill lettuce leaves with vegetables and protein.',
         'Drizzle yogurt sauce and serve with optional pita.'
       ],
-      note: 'Good when you want a lighter lunch that still feels filling.'
+      note: 'Good when you want a lighter lunch that still feels filling.',
+      youtubeSearchQuery: 'healthy chicken lettuce wraps recipe',
+      videoUrls: []
     },
     {
       name: wantsChicken ? 'Chicken Vegetable Soup + Side Salad' : 'Vegetable Protein Soup + Side Salad',
@@ -431,7 +437,9 @@ function buildFallbackMealPlan(prompt: string): AssistantMealPlan {
         `Add cooked ${protein} and warm through.`,
         'Serve with a simple side salad.'
       ],
-      note: 'Soup is useful for appetite control because it adds volume and hydration.'
+      note: 'Soup is useful for appetite control because it adds volume and hydration.',
+      youtubeSearchQuery: 'healthy chicken vegetable soup recipe',
+      videoUrls: []
     }
   ];
 
@@ -511,7 +519,9 @@ async function buildMealPlan(prompt: string): Promise<AssistantMealPlan> {
       tags: [...template.goalTags, ...template.dietTags].slice(0, 4),
       ingredients: jsonStringArray(template.ingredients),
       steps: jsonStringArray(template.steps),
-      note: template.description ?? 'Nutrition values are estimates and may vary by ingredient brand and portion size.'
+      note: template.description ?? 'Nutrition values are estimates and may vary by ingredient brand and portion size.',
+      youtubeSearchQuery: template.youtubeSearchQuery ?? `${template.name} healthy recipe`,
+      videoUrls: template.videoUrls
     }));
 
     if (selected.length === 0) {

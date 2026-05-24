@@ -539,6 +539,8 @@ model MealTemplate {
   ingredients Json
   steps       Json
   imageUrl    String?
+  youtubeSearchQuery String?
+  videoUrls   String[]           @default([])
   source      MealTemplateSource @default(CURATED)
   isActive    Boolean            @default(true)
   createdAt   DateTime           @default(now())

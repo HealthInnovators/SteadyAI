@@ -54,6 +54,8 @@ export interface MealOption {
   ingredients: string[];
   steps: string[];
   note: string;
+  youtubeSearchQuery?: string;
+  videoUrls?: string[];
 }
 
 export interface MealPlan {

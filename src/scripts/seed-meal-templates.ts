@@ -19,6 +19,8 @@ type MealTemplateSeed = {
   ingredients: string[];
   steps: string[];
   imageUrl: string;
+  youtubeSearchQuery: string;
+  videoUrls?: string[];
 };
 
 export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
@@ -48,7 +50,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Build the greens and chopped vegetables in a bowl.',
       'Slice chicken on top and finish with lemon herb vinaigrette.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'lemon herb chicken salad bowl healthy recipe'
   },
   {
     slug: 'chicken-lettuce-wrap-plate',
@@ -76,7 +79,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Fill lettuce leaves with vegetables and chicken.',
       'Drizzle yogurt sauce and serve immediately.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'healthy chicken lettuce wraps recipe'
   },
   {
     slug: 'chicken-vegetable-soup-side-salad',
@@ -104,7 +108,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Add cooked chicken and warm through.',
       'Serve with a simple side salad.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'healthy chicken vegetable soup recipe'
   },
   {
     slug: 'greek-yogurt-berry-protein-bowl',
@@ -132,7 +137,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Top with berries, chia seeds, and granola.',
       'Finish with cinnamon.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'greek yogurt berry protein bowl recipe'
   },
   {
     slug: 'egg-white-veggie-scramble-toast',
@@ -160,7 +166,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Add egg whites and egg, then scramble until set.',
       'Serve with toast and salsa.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'egg white vegetable scramble healthy recipe'
   },
   {
     slug: 'turkey-quinoa-power-bowl',
@@ -188,7 +195,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Layer quinoa and roasted vegetables in a bowl.',
       'Top with turkey and yogurt sauce.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1543353071-10c8ba85a904?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'turkey quinoa power bowl healthy recipe'
   },
   {
     slug: 'salmon-sweet-potato-green-beans',
@@ -216,7 +224,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Bake or pan-sear salmon with lemon and dill.',
       'Steam green beans and serve together.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'salmon sweet potato green beans healthy recipe'
   },
   {
     slug: 'tofu-veggie-stir-fry-brown-rice',
@@ -244,7 +253,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Stir-fry vegetables with garlic and ginger.',
       'Serve over brown rice with sauce.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'tofu vegetable stir fry brown rice recipe'
   },
   {
     slug: 'cottage-cheese-apple-cinnamon-bowl',
@@ -272,7 +282,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Top with apple, honey, cinnamon, and walnuts.',
       'Serve cold.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'cottage cheese apple cinnamon bowl healthy snack'
   },
   {
     slug: 'hummus-veggie-pita-snack-box',
@@ -300,7 +311,8 @@ export const MEAL_TEMPLATE_CATALOG: MealTemplateSeed[] = [
       'Pack hummus, pita, and vegetables together.',
       'Season with lemon pepper if desired.'
     ],
-    imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=900&q=80'
+    imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=900&q=80',
+    youtubeSearchQuery: 'hummus veggie pita snack box recipe'
   }
 ];
 
@@ -325,6 +337,8 @@ async function main(): Promise<void> {
       ingredients: meal.ingredients,
       steps: meal.steps,
       imageUrl: meal.imageUrl,
+      youtubeSearchQuery: meal.youtubeSearchQuery,
+      videoUrls: meal.videoUrls ?? [],
       source: MealTemplateSource.CURATED,
       isActive: true
     };

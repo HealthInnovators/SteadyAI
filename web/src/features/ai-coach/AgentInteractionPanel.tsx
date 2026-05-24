@@ -676,64 +676,100 @@ function MealPlanCard({ plan }: { plan: NonNullable<ChatMessage['mealPlan']> }) 
 
       <div className="grid gap-3 p-3 lg:grid-cols-3">
         {plan.options.map((option, index) => (
-          <article key={`${plan.planId}-${option.name}-${index}`} className="overflow-hidden rounded-[22px] border border-[#ead9ca] bg-white shadow-[0_10px_24px_rgba(80,48,24,0.08)]">
-            <div className="relative h-40 overflow-hidden bg-[#26351f]">
-              <Image
-                className="object-cover"
-                src={option.imageUrl}
-                alt={option.name}
-                fill
-                sizes="(min-width: 1024px) 260px, 86vw"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-                <p className="text-sm font-semibold leading-5 text-white">{option.name}</p>
-              </div>
-            </div>
-
-            <div className="p-3">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
-                  <p className="text-sm font-bold text-[#1d140d]">{option.calories}</p>
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">cal</p>
-                </div>
-                <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
-                  <p className="text-sm font-bold text-[#1d140d]">{option.proteinG}g</p>
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">protein</p>
-                </div>
-                <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
-                  <p className="text-sm font-bold text-[#1d140d]">{option.prepTimeMin}</p>
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">min</p>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {option.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-[#edf4e8] px-2 py-1 text-[11px] font-semibold text-[#34512a]">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a4b22]">Ingredients</p>
-              <ul className="mt-2 space-y-1 text-xs leading-5 text-[#5f5145]">
-                {option.ingredients.slice(0, 4).map((ingredient) => (
-                  <li key={ingredient}>{ingredient}</li>
-                ))}
-              </ul>
-
-              <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a4b22]">Quick prep</p>
-              <ol className="mt-2 space-y-1 text-xs leading-5 text-[#5f5145]">
-                {option.steps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
-
-              <p className="mt-3 rounded-2xl bg-[#fff7ed] p-3 text-xs leading-5 text-[#5f5145]">{option.note}</p>
-            </div>
-          </article>
+          <MealOptionCard key={`${plan.planId}-${option.name}-${index}`} option={option} />
         ))}
       </div>
     </section>
+  );
+}
+
+function MealOptionCard({ option }: { option: NonNullable<ChatMessage['mealPlan']>['options'][number] }) {
+  const videoUrl = option.videoUrls?.[0];
+  const searchUrl = option.youtubeSearchQuery
+    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(option.youtubeSearchQuery)}`
+    : null;
+
+  return (
+    <article className="overflow-hidden rounded-[22px] border border-[#ead9ca] bg-white shadow-[0_10px_24px_rgba(80,48,24,0.08)]">
+      <div className="relative h-40 overflow-hidden bg-[#26351f]">
+        <Image
+          className="object-cover"
+          src={option.imageUrl}
+          alt={option.name}
+          fill
+          sizes="(min-width: 1024px) 260px, 86vw"
+        />
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+          <p className="text-sm font-semibold leading-5 text-white">{option.name}</p>
+        </div>
+      </div>
+
+      <div className="p-3">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
+            <p className="text-sm font-bold text-[#1d140d]">{option.calories}</p>
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">cal</p>
+          </div>
+          <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
+            <p className="text-sm font-bold text-[#1d140d]">{option.proteinG}g</p>
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">protein</p>
+          </div>
+          <div className="rounded-2xl bg-[#f7efe6] px-2 py-2">
+            <p className="text-sm font-bold text-[#1d140d]">{option.prepTimeMin}</p>
+            <p className="text-[10px] uppercase tracking-[0.12em] text-[#7a6555]">min</p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {option.tags.map((tag) => (
+            <span key={tag} className="rounded-full bg-[#edf4e8] px-2 py-1 text-[11px] font-semibold text-[#34512a]">
+              {tag}
+            </span>
+          ))}
+        </div>
+
+        {videoUrl || searchUrl ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {videoUrl ? (
+              <a
+                href={videoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-[#26351f] px-3 py-2 text-xs font-semibold text-white"
+              >
+                Watch recipe video
+              </a>
+            ) : null}
+            {searchUrl ? (
+              <a
+                href={searchUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-[#d8c4b3] bg-white px-3 py-2 text-xs font-semibold text-[#4e4035]"
+              >
+                Find videos
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a4b22]">Ingredients</p>
+        <ul className="mt-2 space-y-1 text-xs leading-5 text-[#5f5145]">
+          {option.ingredients.slice(0, 4).map((ingredient) => (
+            <li key={ingredient}>{ingredient}</li>
+          ))}
+        </ul>
+
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-[#8a4b22]">Quick prep</p>
+        <ol className="mt-2 space-y-1 text-xs leading-5 text-[#5f5145]">
+          {option.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+
+        <p className="mt-3 rounded-2xl bg-[#fff7ed] p-3 text-xs leading-5 text-[#5f5145]">{option.note}</p>
+      </div>
+    </article>
   );
 }
 
