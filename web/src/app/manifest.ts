@@ -14,21 +14,21 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ['health', 'fitness', 'productivity'],
     icons: [
       {
-        src: '/favicon.svg',
-        sizes: '64x64',
-        type: 'image/svg+xml',
+        src: '/icons/icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
         purpose: 'any'
       },
       {
-        src: '/brand/steadyai-logo.svg',
+        src: '/icons/icon-512.png',
         sizes: '512x512',
-        type: 'image/svg+xml',
+        type: 'image/png',
         purpose: 'any'
       },
       {
-        src: '/brand/steadyai-logo.svg',
+        src: '/icons/icon-maskable-512.png',
         sizes: '512x512',
-        type: 'image/svg+xml',
+        type: 'image/png',
         purpose: 'maskable'
       }
     ],
@@ -38,7 +38,7 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: 'Coach',
         description: 'Ask SteadyAI for your next workout, meal, or progress step.',
         url: '/ai-coach',
-        icons: [{ src: '/favicon.svg', sizes: '64x64', type: 'image/svg+xml' }]
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }]
       }
     ]
   };

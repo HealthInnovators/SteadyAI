@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
-    apple: '/brand/steadyai-logo.svg'
+    apple: '/icons/apple-touch-icon.png'
   },
   appleWebApp: {
     capable: true,

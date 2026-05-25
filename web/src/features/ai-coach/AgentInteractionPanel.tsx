@@ -372,7 +372,11 @@ export function AgentInteractionPanel({ embedded = false, onIntentDetected }: Ag
                 </div>
               )}
 
-              <div className={`mx-auto w-full max-w-3xl ${embedded ? '' : 'sticky bottom-20 z-20 md:static'}`}>
+              <div
+                className={`mx-auto w-full max-w-3xl ${
+                  embedded ? '' : conversationMessages.length ? 'sticky bottom-20 z-20 md:static' : 'relative z-20'
+                }`}
+              >
                 <form onSubmit={handleSubmit} className="w-full">
                   <div className="rounded-[28px] border-2 border-[#8a4b22] bg-[#fffcf8] p-3 shadow-[0_0_0_5px_rgba(245,201,158,0.26),0_18px_48px_rgba(80,48,24,0.16)] sm:rounded-[32px] sm:p-4">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
