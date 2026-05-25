@@ -1,6 +1,6 @@
 # Deployment Guide for SteadyAI
 
-This project contains a Fastify backend, Next.js frontend, and Android app. Follow the steps below to deploy.
+This project contains a Fastify backend and Next.js frontend. Follow the steps below to deploy.
 
 ## Quick Start (Railway)
 
@@ -119,6 +119,6 @@ OPENAI_MODEL=gpt-4.1-mini
 - Check network access to database
 - Ensure Prisma client is generated
 
-## Android App Deployment
+## Mobile App Deployment
 
-Android app builds are configured in `.github/workflows/android-ci.yml`. Check that workflow for CI/CD pipeline details.
+Future mobile app deployment should be documented when the Expo-based mobile workspace is added.

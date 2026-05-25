@@ -101,7 +101,7 @@ The deployment strategy is well-documented in `DEPLOYMENT.md` and configured acr
   - The `web` directory is specified as the root.
   - Requires the `NEXT_PUBLIC_API_URL` environment variable to point to the deployed backend.
 - **Local Development**: `docker-compose.yml` orchestrates local containers for the backend and frontend.
-- **Android**: A CI workflow (`.github/workflows/android-ci.yml`) is in place for building the Android app.
+- **Mobile**: The previous native mobile project and mobile CI workflow have been removed. The recommended mobile path is a future Expo-based app under a separate `mobile/` workspace.
 
 ## 7. Risks & Key Considerations for Migration
 
